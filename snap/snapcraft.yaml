@@ -1,0 +1,65 @@
+name: vk-video-streamer
+base: core20
+summary: VK Video Streamer
+adopt-info: streamer
+description: |
+  Intended to help stream your IP Cam to VK Video.
+  _Note: only cams with h264 codec are supported at the moment_
+
+  **Getting started**
+  0. [RaspberryPi + Raspbian/Raspberry Pi OS] Update `snapd` to the latest available version according to https://forum.snapcraft.io/t/installing-snap-on-debian
+  1. Install snap: `sudo snap install vk-video-streamer --edge`
+  2. Get `KEY` in `https://vk.com/video` -> Live -> App
+  3. Open config file for edit: `sudoedit /var/snap/vk-video-streamer/common/vk-streamer.conf`
+  4. Replace `source` value with desired RTSP URL
+  5. Uncomment `key: "0000000000000_0000000000000_xxxxxxxxxx"` line by removing `#` at the beginning and replace `0000000000000_0000000000000_xxxxxxxxxx` with `KEY`
+  6. Restart snap: `sudo snap restart vk-video-streamer`
+
+  **Troubleshooting**
+  * Look to the logs with `sudo snap logs vk-video-streamer` or `sudo snap logs vk-video-streamer -f`
+  * Create issue on https://github.com/RSATom/VKVideoStreamer/issues
+license: GPL-3.0
+grade: devel
+confinement: strict
+
+architectures:
+  - build-on: amd64
+  - build-on: armhf
+  - build-on: arm64
+
+environment:
+  GST_DEBUG: 3
+  GST_DEBUG_NO_COLOR: 1
+  GST_PLUGIN_PATH: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/gstreamer-1.0
+  GST_PLUGIN_SCANNER: $SNAP/usr/libexec/$SNAPCRAFT_ARCH_TRIPLET/gstreamer-1.0/gst-plugin-scanner
+  LD_LIBRARY_PATH: $SNAP/usr/local/lib/$SNAPCRAFT_ARCH_TRIPLET:$SNAP/opt/${SNAP_NAME}/lib
+  GST_PLUGIN_SYSTEM_PATH: $SNAP/usr/local/lib/$SNAPCRAFT_ARCH_TRIPLET/gstreamer-1.0
+
+parts:
+  streamer:
+    plugin: cmake
+    source-type: git
+    source: https://github.com/RSATom/VKVideoStreamer.git
+    override-pull: |
+        snapcraftctl pull
+        snapcraftctl set-version "$(git describe --always)"
+    cmake-parameters:
+      - -DCMAKE_INSTALL_PREFIX=/opt/${SNAPCRAFT_PROJECT_NAME}
+    build-packages:
+      - pkg-config
+      - g++
+      - make
+      - libspdlog-dev
+      - libconfig-dev
+      - libgstreamer1.0-dev
+    stage-packages:
+      - libconfig9
+      - gstreamer1.0-plugins-good
+      - gstreamer1.0-plugins-bad
+
+apps:
+  VkVideoStreamer:
+    command: opt/${SNAPCRAFT_PROJECT_NAME}/bin/VKVideoStreamer
+    daemon: simple
+    plugs:
+      - network

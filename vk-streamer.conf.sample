@@ -1,0 +1,16 @@
+streamers: (
+  {
+    source: "rtsp://localhost:8554/white",
+#    key: "0000000000000_0000000000000_xxxxxxxxxx"
+  },
+  {
+    source: "rtsp://localhost:8554/blue",
+#    key: "0000000000000_0000000000000_xxxxxxxxxx"
+  },
+  {
+    source: "rtsp://localhost:8554/red",
+#    key: "0000000000000_0000000000000_xxxxxxxxxx"
+  }
+)
+
+log-level: 3
