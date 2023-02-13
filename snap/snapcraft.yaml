@@ -22,7 +22,7 @@ description: |
   * Look to the logs with `sudo snap logs vk-video-streamer` or `sudo snap logs vk-video-streamer -f`
   * Create issue on https://github.com/RSATom/VKVideoStreamer/issues
 license: GPL-3.0
-grade: devel
+grade: stable
 confinement: strict
 
 platforms:
