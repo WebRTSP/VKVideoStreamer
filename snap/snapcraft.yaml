@@ -1,5 +1,5 @@
 name: vk-video-streamer
-base: core20
+base: core24
 summary: VK Video Streamer
 adopt-info: streamer
 description: |
@@ -22,29 +22,26 @@ license: GPL-3.0
 grade: devel
 confinement: strict
 
-architectures:
-  - build-on: amd64
-  - build-on: armhf
-  - build-on: arm64
+platforms:
+  amd64:
+  arm64:
 
 environment:
-  GST_DEBUG: 3
+  GST_DEBUG: 2
   GST_DEBUG_NO_COLOR: 1
-  GST_PLUGIN_PATH: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/gstreamer-1.0
-  GST_PLUGIN_SCANNER: $SNAP/usr/libexec/$SNAPCRAFT_ARCH_TRIPLET/gstreamer-1.0/gst-plugin-scanner
-  LD_LIBRARY_PATH: $SNAP/usr/local/lib/$SNAPCRAFT_ARCH_TRIPLET:$SNAP/opt/${SNAP_NAME}/lib
-  GST_PLUGIN_SYSTEM_PATH: $SNAP/usr/local/lib/$SNAPCRAFT_ARCH_TRIPLET/gstreamer-1.0
+  GST_PLUGIN_SCANNER: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+  GST_PLUGIN_SYSTEM_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gstreamer-1.0
 
 parts:
   streamer:
     plugin: cmake
     source-type: git
-    source: https://github.com/RSATom/VKVideoStreamer.git
+    source: .
     override-pull: |
-        snapcraftctl pull
-        snapcraftctl set-version "$(git describe --always)"
+        craftctl default
+        craftctl set version="$(git describe --always)"
     cmake-parameters:
-      - -DCMAKE_INSTALL_PREFIX=/opt/${SNAPCRAFT_PROJECT_NAME}
+      - -DCMAKE_INSTALL_PREFIX=/opt/${CRAFT_PROJECT_NAME}
     build-packages:
       - pkg-config
       - g++
@@ -52,14 +49,17 @@ parts:
       - libspdlog-dev
       - libconfig-dev
       - libgstreamer1.0-dev
+      - libgssdp-1.6-dev
     stage-packages:
       - libconfig9
+      - libspdlog1.12
       - gstreamer1.0-plugins-good
       - gstreamer1.0-plugins-bad
+      - libgssdp-1.6-0
 
 apps:
   VkVideoStreamer:
-    command: opt/${SNAPCRAFT_PROJECT_NAME}/bin/VKVideoStreamer
+    command: opt/${CRAFT_PROJECT_NAME}/bin/VKVideoStreamer
     daemon: simple
     plugs:
       - network

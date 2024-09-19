@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 
 project(VKVideoStreamer)
 
-if(DEFINED ENV{SNAPCRAFT_BUILD_ENVIRONMENT})
+if(DEFINED ENV{SNAPCRAFT_PROJECT_NAME})
     add_definitions(-DSNAPCRAFT_BUILD=1)
     set(SNAPCRAFT_BUILD YES)
 endif()
