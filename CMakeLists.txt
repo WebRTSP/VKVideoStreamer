@@ -20,7 +20,6 @@ pkg_search_module(GSTREAMER REQUIRED gstreamer-1.0)
 file(GLOB SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     *.cpp
     *.h
-    *.cmake,
     *.conf.sample
     README.md)
 
