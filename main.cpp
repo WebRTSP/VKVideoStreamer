@@ -7,9 +7,12 @@
 #include "CxxPtr/libconfigDestroy.h"
 
 #include "Log.h"
+#include "Defines.h"
 #include "Config.h"
 #include "ConfigHelpers.h"
 #include "ReStreamer.h"
+#include "SSDP.h"
+
 
 enum {
     RECONNECT_INTERVAL = 5
@@ -173,6 +176,38 @@ int main(int argc, char *argv[])
 
         StartRestream(reStreamer, &context);
     }
+
+    SSDPContext ssdpContext;
+#ifdef SNAPCRAFT_BUILD
+    const gchar* snapData = g_getenv("SNAP_DATA");
+    g_autofree gchar* deviceUuidFilePath = nullptr;
+    if(snapData) {
+        deviceUuidFilePath =
+            g_build_path(G_DIR_SEPARATOR_S, snapData, DEVICE_UUID_FILE_NAME, NULL);
+        g_autofree gchar* deviceUuid = nullptr;
+        if(g_file_get_contents(deviceUuidFilePath, &deviceUuid, nullptr, nullptr) &&
+            g_uuid_string_is_valid(deviceUuid))
+        {
+            ssdpContext.deviceUuid = deviceUuid;
+        }
+    }
+    const bool hadDeviceUuid = ssdpContext.deviceUuid.has_value();
+#endif
+    SSDPPublish(&ssdpContext);
+#ifdef SNAPCRAFT_BUILD
+    if(!hadDeviceUuid && ssdpContext.deviceUuid.has_value() && deviceUuidFilePath) {
+        if(!g_file_set_contents_full(
+            deviceUuidFilePath,
+            ssdpContext.deviceUuid.value().c_str(),
+            -1,
+            GFileSetContentsFlags(G_FILE_SET_CONTENTS_CONSISTENT | G_FILE_SET_CONTENTS_ONLY_EXISTING),
+            0644,
+            nullptr))
+        {
+            Log()->warn("Failed to save device uuid to \"{}\"", deviceUuidFilePath);
+        }
+    }
+#endif
 
     g_main_loop_run(loop);
 

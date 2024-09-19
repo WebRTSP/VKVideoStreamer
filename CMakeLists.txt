@@ -15,6 +15,7 @@ find_package(PkgConfig REQUIRED)
 pkg_search_module(GLIB REQUIRED glib-2.0)
 pkg_search_module(SPDLOG REQUIRED spdlog)
 pkg_search_module(LIBCONFIG REQUIRED libconfig)
+pkg_search_module(GSSDP REQUIRED gssdp-1.6)
 pkg_search_module(GSTREAMER REQUIRED gstreamer-1.0)
 
 file(GLOB SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -31,11 +32,13 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${GLIB_INCLUDE_DIRS}
     ${SPDLOG_INCLUDE_DIRS}
     ${LIBCONFIG_INCLUDE_DIRS}
+    ${GSSDP_INCLUDE_DIRS}
     ${GSTREAMER_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME}
     ${GLIB_LDFLAGS}
     ${SPDLOG_LDFLAGS}
     ${LIBCONFIG_LDFLAGS}
+    ${GSSDP_LDFLAGS}
     ${GSTREAMER_LDFLAGS}
     CxxPtr
     Threads::Threads)
