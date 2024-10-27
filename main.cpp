@@ -64,7 +64,11 @@ static bool LoadConfig(Config* config)
         config_lookup_string(&config, "key", &key);
 
         if(source && key) {
-            loadedConfig.reStreamers.emplace_back(Config::ReStreamer{ source, key });
+            loadedConfig.reStreamers.emplace_back(
+                Config::ReStreamer {
+                    source,
+                    key,
+                    true });
         }
 
         config_setting_t* streamersConfig = config_lookup(&config, "streamers");
@@ -82,9 +86,15 @@ static bool LoadConfig(Config* config)
                 config_setting_lookup_string(streamerConfig, "source", &source);
                 const char* key = nullptr;
                 config_setting_lookup_string(streamerConfig, "key", &key);
+                int enabled = TRUE;
+                config_setting_lookup_bool(streamerConfig, "enable", &enabled);
 
                 if(source && key) {
-                    loadedConfig.reStreamers.emplace_back(Config::ReStreamer{ source, key });
+                    loadedConfig.reStreamers.emplace_back(
+                        Config::ReStreamer {
+                            source,
+                            key,
+                            enabled != FALSE });
                 }
             }
         }
@@ -172,6 +182,9 @@ int main(int argc, char *argv[])
     std::deque<ReStreamContext> contexts;
 
     for(const Config::ReStreamer& reStreamer: config.reStreamers) {
+        if(!reStreamer.enabled)
+            continue;
+
         ReStreamContext& context = *contexts.emplace(contexts.end());
 
         StartRestream(reStreamer, &context);
