@@ -7,7 +7,8 @@ if(DEFINED ENV{SNAPCRAFT_PROJECT_NAME})
     set(SNAPCRAFT_BUILD YES)
 endif()
 
-add_subdirectory(CxxPtr)
+set(ONVIF_SUPPORT OFF)
+add_subdirectory(WebRTSP)
 
 find_package(Threads REQUIRED)
 
