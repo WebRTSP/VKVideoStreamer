@@ -9,6 +9,7 @@ endif()
 
 set(ONVIF_SUPPORT OFF)
 add_subdirectory(WebRTSP)
+add_subdirectory(www)
 
 find_package(Threads REQUIRED)
 
@@ -18,6 +19,7 @@ pkg_search_module(SPDLOG REQUIRED spdlog)
 pkg_search_module(LIBCONFIG REQUIRED libconfig)
 pkg_search_module(GSSDP REQUIRED gssdp-1.6)
 pkg_search_module(GSTREAMER REQUIRED gstreamer-1.0)
+pkg_search_module(JANSSON REQUIRED jansson)
 
 file(GLOB SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     *.cpp
@@ -34,14 +36,17 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${SPDLOG_INCLUDE_DIRS}
     ${LIBCONFIG_INCLUDE_DIRS}
     ${GSSDP_INCLUDE_DIRS}
+    ${JANSSON_INCLUDE_DIRS}
     ${GSTREAMER_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME}
     ${GLIB_LDFLAGS}
     ${SPDLOG_LDFLAGS}
     ${LIBCONFIG_LDFLAGS}
     ${GSSDP_LDFLAGS}
+    ${JANSSON_LDFLAGS}
     ${GSTREAMER_LDFLAGS}
     CxxPtr
+    Http
     Threads::Threads)
 
 if(SNAPCRAFT_BUILD)

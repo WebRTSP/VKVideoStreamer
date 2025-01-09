@@ -6,27 +6,33 @@
 #include "CxxPtr/GlibPtr.h"
 #include "CxxPtr/libconfigDestroy.h"
 
+#include "WebRTSP/Http/Config.h"
+#include "WebRTSP/Http/HttpMicroServer.h"
+
 #include "Log.h"
 #include "Defines.h"
 #include "Config.h"
 #include "ConfigHelpers.h"
 #include "ReStreamer.h"
 #include "SSDP.h"
+#include "RestApi.h"
 
 
 enum {
-    RECONNECT_INTERVAL = 5
+    RECONNECT_INTERVAL = 5,
+    DEFAULT_HTTP_PORT = 4080,
 };
 
 static const auto Log = ReStreamerLog;
 
 
-static bool LoadConfig(Config* config)
+static bool LoadConfig(http::Config* httpConfig, Config* config)
 {
     const std::deque<std::string> configDirs = ::ConfigDirs();
     if(configDirs.empty())
         return false;
 
+    http::Config loadedHttpConfig = *httpConfig;
     Config loadedConfig = *config;
 
     for(const std::string& configDir: configDirs) {
@@ -58,6 +64,21 @@ static bool LoadConfig(Config* config)
             }
         }
 
+        const char* wwwRoot = nullptr;
+        if(CONFIG_TRUE == config_lookup_string(&config, "www-root", &wwwRoot)) {
+            loadedHttpConfig.wwwRoot = wwwRoot;
+        }
+
+        int loopbackOnly = false;
+        if(CONFIG_TRUE == config_lookup_bool(&config, "loopback-only", &loopbackOnly)) {
+            loadedHttpConfig.bindToLoopbackOnly = loopbackOnly != false;
+        }
+
+        int httpPort;
+        if(CONFIG_TRUE == config_lookup_int(&config, "http-port", &httpPort)) {
+            loadedHttpConfig.port = static_cast<unsigned short>(httpPort);
+        }
+
         const char* source = nullptr;
         config_lookup_string(&config, "source", &source);
         const char* key = nullptr;
@@ -67,6 +88,7 @@ static bool LoadConfig(Config* config)
             loadedConfig.reStreamers.emplace_back(
                 Config::ReStreamer {
                     source,
+                    std::string(),
                     key,
                     true });
         }
@@ -84,6 +106,8 @@ static bool LoadConfig(Config* config)
 
                 const char* source = nullptr;
                 config_setting_lookup_string(streamerConfig, "source", &source);
+                const char* description = "";
+                config_setting_lookup_string(streamerConfig, "description", &description);
                 const char* key = nullptr;
                 config_setting_lookup_string(streamerConfig, "key", &key);
                 int enabled = TRUE;
@@ -93,6 +117,7 @@ static bool LoadConfig(Config* config)
                     loadedConfig.reStreamers.emplace_back(
                         Config::ReStreamer {
                             source,
+                            description,
                             key,
                             enabled != FALSE });
                 }
@@ -102,12 +127,13 @@ static bool LoadConfig(Config* config)
 
     bool success = true;
     if(loadedConfig.reStreamers.empty()) {
-        Log()->error("No streamers configured");
-        success = false;
+        Log()->warn("No streamers configured");
     }
 
-    if(success)
+    if(success) {
+        *httpConfig = loadedHttpConfig;
         *config = loadedConfig;
+    }
 
     return success;
 }
@@ -170,8 +196,25 @@ void ScheduleStartRestreawm(const Config::ReStreamer& reStreamer, ReStreamContex
 
 int main(int argc, char *argv[])
 {
-    Config config {};
-    if(!LoadConfig(&config))
+    http::Config httpConfig {
+        .port = DEFAULT_HTTP_PORT,
+        .realm = "VKVideoStreamer",
+        .opaque = "VKVideoStreamer",
+        .apiPrefix = rest::ApiPrefix,
+    };
+
+    Config initialConfig {};
+
+#ifdef SNAPCRAFT_BUILD
+    const gchar* snapPath = g_getenv("SNAP");
+    const gchar* snapName = g_getenv("SNAP_NAME");
+    if(snapPath && snapName) {
+        GCharPtr wwwRootPtr(g_build_path(G_DIR_SEPARATOR_S, snapPath, "opt", snapName, "www", NULL));
+        httpConfig.wwwRoot = wwwRootPtr.get();
+    }
+#endif
+
+    if(!LoadConfig(&httpConfig, &initialConfig))
         return -1;
 
     gst_init(&argc, &argv);
@@ -181,7 +224,7 @@ int main(int argc, char *argv[])
 
     std::deque<ReStreamContext> contexts;
 
-    for(const Config::ReStreamer& reStreamer: config.reStreamers) {
+    for(const Config::ReStreamer& reStreamer: initialConfig.reStreamers) {
         if(!reStreamer.enabled)
             continue;
 
@@ -189,6 +232,25 @@ int main(int argc, char *argv[])
 
         StartRestream(reStreamer, &context);
     }
+
+    std::unique_ptr<http::MicroServer> httpServerPtr;
+    if(httpConfig.port) {
+        std::string configJs =
+            fmt::format("const APIPort = {};\r\n", httpConfig.port);
+        httpServerPtr =
+            std::make_unique<http::MicroServer>(
+                httpConfig,
+                configJs,
+                http::MicroServer::OnNewAuthToken(),
+                std::bind(
+                    &rest::HandleRequest,
+                    std::make_shared<Config>(initialConfig),
+                    std::placeholders::_1,
+                    std::placeholders::_2),
+                nullptr);
+        httpServerPtr->init();
+    }
+
 
     SSDPContext ssdpContext;
 #ifdef SNAPCRAFT_BUILD
