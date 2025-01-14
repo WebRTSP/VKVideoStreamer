@@ -7,6 +7,7 @@ import { createPinia } from 'pinia'
 import PrimeVue from 'primevue/config'
 import Aura from '@primevue/themes/aura';
 import Card from 'primevue/card'
+import ProgressSpinner from 'primevue/progressspinner';
 import App from './App.vue'
 
 const app = createApp(App)
@@ -20,5 +21,6 @@ app.use(PrimeVue, { theme: {
 
 app.use(createPinia())
 app.component('Card', Card)
+app.component('ProgressSpinner', ProgressSpinner)
 
 app.mount('#app')

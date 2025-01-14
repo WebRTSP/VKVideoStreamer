@@ -17,6 +17,7 @@ streamers: (
 )
 
 #http-port: 4080
+#ws-port: 5554
 
 #loopback-only: false
 

@@ -47,6 +47,8 @@ target_link_libraries(${PROJECT_NAME}
     ${GSTREAMER_LDFLAGS}
     CxxPtr
     Http
+    Signalling
+    RtStreaming
     Threads::Threads)
 
 if(SNAPCRAFT_BUILD)

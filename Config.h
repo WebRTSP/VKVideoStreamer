@@ -19,4 +19,5 @@ struct Config::ReStreamer {
     std::string description;
     std::string key;
     bool enabled;
+    std::string forceH264ProfileLevelId = "42c015";
 };

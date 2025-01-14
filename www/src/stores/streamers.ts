@@ -27,7 +27,7 @@ export const useStreamersStore = defineStore('streamers', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fetchedStreamers = (await response.json()).map((inStreamer: any) => {
         return {
-          id: inStreamer.id,
+          id: crypto.randomUUID(),
           description: inStreamer.description,
           sourceUrl: inStreamer.source,
           enabled: inStreamer.enabled,

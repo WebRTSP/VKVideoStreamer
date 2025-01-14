@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useStreamersStore } from './stores/streamers';
+import Player from './WebRTSPPlayer.vue'
 
 const streamers = useStreamersStore()
 </script>
@@ -8,20 +9,26 @@ const streamers = useStreamersStore()
   <Card class="card" v-for="streamer of streamers.streamers" :key="streamer.id">
     <template #header>
       <div class="card-header-container">
-        <img class="header-img" src="@/assets/video-camera-alt.svg"/>
+        <Player :uri="streamer.sourceUrl"/>
       </div>
     </template>
     <template #title>
       <span
-        class="title"
-        :class="{ 'disabled-title': !streamer.enabled }"
+        class="title-subtitle"
+        :class="{ 'disabled-title-subtitle': !streamer.enabled }"
         :title="streamer.sourceUrl"
       >
         {{ streamer.sourceUrl }}
       </span>
     </template>
     <template #subtitle>
-      {{ streamer.description }}
+      <span
+        class="title-subtitle"
+        :class="{ 'disabled-title-subtitle': !streamer.enabled }"
+        :title="streamer.description"
+      >
+        {{ streamer.description }}
+      </span>
     </template>
   </Card>
 </template>
@@ -33,17 +40,19 @@ const streamers = useStreamersStore()
   }
 
   .card-header-container {
+    position: relative;
     background-color: var(--p-surface-300);
     height: calc(var(--card-width) / var(--preview-aspect-ratio));
   }
 
-  .header-img {
-    display: block;
-    margin: auto;
-    height: 100%;
+  .title-subtitle {
+    display: inline-block;
+    width: 100%;
+    overflow: hidden;
+    text-overflow:ellipsis;
   }
 
-  .disabled-title {
+  .disabled-title-subtitle {
     text-decoration: line-through;
   }
 </style>
