@@ -15,6 +15,9 @@ description: |
   5. Uncomment `key: "0000000000000_0000000000000_xxxxxxxxxx"` line by removing `#` at the beginning and replace `0000000000000_0000000000000_xxxxxxxxxx` with `KEY`
   6. Restart snap: `sudo snap restart vk-video-streamer`
 
+  **Hints**
+  * You can view configured video streams by opening http://localhost:4080 in browser
+
   **Troubleshooting**
   * Look to the logs with `sudo snap logs vk-video-streamer` or `sudo snap logs vk-video-streamer -f`
   * Create issue on https://github.com/RSATom/VKVideoStreamer/issues
