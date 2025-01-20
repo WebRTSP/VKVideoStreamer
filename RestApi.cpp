@@ -25,6 +25,18 @@ inline char* json_dumps(json_t* json)
     return ::json_dumps(json, JSON_INDENT(4));
 }
 
+inline MHD_Response* ApplyDefaultHeaders(MHD_Response* response)
+{
+    if(!response) return nullptr;
+
+    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, CONTENT_TYPE_APPLICATION_JSON);
+#ifndef NDEBUG
+    MHD_add_response_header(response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*"); // FIXME?
+#endif
+
+    return response;
+}
+
 MHD_Response* HandleStreamersRequest(
     const std::shared_ptr<const Config>& streamersConfig,
     const char* /*method*/,
@@ -91,12 +103,7 @@ MHD_Response* rest::HandleRequest(
 
     if(g_str_has_prefix(requestPath, StreamersPrefix)) {
         requestPath += StreamersPrefixLen;
-        MHD_Response* response = HandleStreamersRequest(streamersConfig, method, requestPath);
-        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, "application/json");
-#ifndef NDEBUG
-        MHD_add_response_header(response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*"); // FIXME?
-#endif
-        return response;
+        return ApplyDefaultHeaders(HandleStreamersRequest(streamersConfig, method, requestPath));
     }
 
     return nullptr;
