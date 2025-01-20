@@ -8,6 +8,10 @@ const char *const rest::ApiPrefix = "/api";
 
 namespace {
 
+enum {
+    STRCMP_EQUAL = 0
+};
+
 const size_t ApiPrefixLen = strlen(rest::ApiPrefix);
 
 const char *const StreamersPrefix = "/streamers";
@@ -39,7 +43,6 @@ inline MHD_Response* ApplyDefaultHeaders(MHD_Response* response)
 
 MHD_Response* HandleStreamersRequest(
     const std::shared_ptr<const Config>& streamersConfig,
-    const char* /*method*/,
     const char* path
 ) {
     g_autoptr(json_t) array = json_array();
@@ -103,7 +106,9 @@ MHD_Response* rest::HandleRequest(
 
     if(g_str_has_prefix(requestPath, StreamersPrefix)) {
         requestPath += StreamersPrefixLen;
-        return ApplyDefaultHeaders(HandleStreamersRequest(streamersConfig, method, requestPath));
+        if(strcmp(method, MHD_HTTP_METHOD_GET) == STRCMP_EQUAL) {
+            return ApplyDefaultHeaders(HandleStreamersRequest(streamersConfig, requestPath));
+        }
     }
 
     return nullptr;
