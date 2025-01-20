@@ -45,6 +45,9 @@ MHD_Response* HandleStreamersRequest(
     const std::shared_ptr<const Config>& streamersConfig,
     const char* path
 ) {
+    if(strcmp(path, "") != STRCMP_EQUAL && strcmp(path, "/") != STRCMP_EQUAL)
+        return nullptr;
+
     g_autoptr(json_t) array = json_array();
 
     for(const Config::ReStreamer& reStreamer: streamersConfig->reStreamers) {
