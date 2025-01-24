@@ -30,7 +30,9 @@ enum {
 static const auto Log = ReStreamerLog;
 
 
-static bool LoadConfig(
+namespace {
+
+bool LoadConfig(
     http::Config* httpConfig,
     signalling::Config* wsConfig,
     Config* config)
@@ -235,6 +237,9 @@ std::unique_ptr<ServerSession> CreateWebRTSPSession(
             sendRequest,
             sendResponse);
 }
+
+}
+
 
 int main(int argc, char *argv[])
 {
