@@ -164,7 +164,7 @@ void StopReStream(ReStreamContext* context)
     context->reStreamer.reset();
 }
 
-void ScheduleStartRestreawm(const Config::ReStreamer&, ReStreamContext*);
+void ScheduleStartRestream(const Config::ReStreamer&, ReStreamContext*);
 
 void StartRestream(const Config::ReStreamer& reStreamer, ReStreamContext* context)
 {
@@ -177,13 +177,13 @@ void StartRestream(const Config::ReStreamer& reStreamer, ReStreamContext* contex
             reStreamer.source,
             "rtmp://ovsu.mycdn.me/input/" + reStreamer.key,
             [&reStreamer, context] () {
-                ScheduleStartRestreawm(reStreamer, context);
+                ScheduleStartRestream(reStreamer, context);
             });
 
     context->reStreamer->start();
 }
 
-void ScheduleStartRestreawm(const Config::ReStreamer& reStreamer, ReStreamContext* context)
+void ScheduleStartRestream(const Config::ReStreamer& reStreamer, ReStreamContext* context)
 {
     Log()->info("ReStreaming restart pending...");
 
