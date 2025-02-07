@@ -15,6 +15,8 @@ public:
         const std::function<void ()>& onEos);
     ~ReStreamer();
 
+    const std::string& sourceUrl() const { return _sourceUrl; };
+
     void start() noexcept;
 
 private:
