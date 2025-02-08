@@ -31,24 +31,62 @@ inline char* json_dumps(json_t* json)
     return ::json_dumps(json, JSON_INDENT(4));
 }
 
-inline MHD_Response* ApplyDefaultHeaders(MHD_Response* response)
+inline std::pair<rest::StatusCode, MHD_Response*>
+ApplyDefaultHeaders(std::pair<rest::StatusCode, MHD_Response*>&& response)
 {
-    if(!response) return nullptr;
-
-    MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, CONTENT_TYPE_APPLICATION_JSON);
+    if(response.second) {
+        MHD_add_response_header(
+            response.second,
+            MHD_HTTP_HEADER_CONTENT_TYPE,
+            CONTENT_TYPE_APPLICATION_JSON);
 #ifndef NDEBUG
-    MHD_add_response_header(response, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*"); // FIXME?
+        MHD_add_response_header(
+            response.second,
+            MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN,
+            "*"); // FIXME?
 #endif
+    }
 
     return response;
 }
 
-MHD_Response* HandleStreamersRequest(
+inline MHD_Response*
+FixResponse(MHD_Response* response)
+{
+    return response ? response : MHD_create_response_from_buffer_static(0, nullptr);
+}
+
+inline std::pair<rest::StatusCode, MHD_Response*>
+OK(MHD_Response* response = nullptr)
+{
+    return { MHD_HTTP_OK, FixResponse(response) };
+}
+
+inline std::pair<rest::StatusCode, MHD_Response*>
+InternalError(MHD_Response* response = nullptr)
+{
+    return { MHD_HTTP_INTERNAL_SERVER_ERROR, FixResponse(response) };
+}
+
+inline std::pair<rest::StatusCode, MHD_Response*>
+BadRequest(MHD_Response* response = nullptr)
+{
+    return { MHD_HTTP_BAD_REQUEST, FixResponse(response) };
+}
+
+inline std::pair<rest::StatusCode, MHD_Response*>
+NotFound(MHD_Response* response = nullptr)
+{
+    return { MHD_HTTP_NOT_FOUND, FixResponse(response) };
+}
+
+std::pair<rest::StatusCode, MHD_Response*>
+HandleStreamersRequest(
     const std::shared_ptr<const Config>& config,
     const char* path
 ) {
     if(strcmp(path, "") != STRCMP_EQUAL && strcmp(path, "/") != STRCMP_EQUAL)
-        return nullptr;
+        return BadRequest();
 
     g_autoptr(json_t) array = json_array();
 
@@ -71,29 +109,31 @@ MHD_Response* HandleStreamersRequest(
 
     g_auto(json_char_ptr) json = json_dumps(array);
     if(!json)
-        return nullptr;
+        return InternalError();
 
     MHD_Response* response = MHD_create_response_from_buffer(
         strlen(json),
         json,
         MHD_RESPMEM_MUST_FREE);
     if(!response)
-        return nullptr;
+        return InternalError();
 
     json = nullptr; // to avoid double free
-    return response;
+
+    return OK(response);
 }
 
 }
 
 
-MHD_Response* rest::HandleRequest(
+std::pair<rest::StatusCode, MHD_Response*>
+rest::HandleRequest(
     std::shared_ptr<Config>& streamersConfig,
     const char* method,
     const char* uri)
 {
     if(!uri)
-        return nullptr;
+        return InternalError();
 
     g_autofree gchar* path = nullptr;
     if(!g_uri_split(
@@ -108,11 +148,11 @@ MHD_Response* rest::HandleRequest(
         nullptr, //fragment
         nullptr))
     {
-        return nullptr;
+        return InternalError();
     }
 
     if(!g_str_has_prefix(path, ApiPrefix))
-        return nullptr;
+        return BadRequest();
 
     const gchar* requestPath = path + ApiPrefixLen;
 
@@ -123,5 +163,5 @@ MHD_Response* rest::HandleRequest(
         }
     }
 
-    return nullptr;
+    return BadRequest();
 }
