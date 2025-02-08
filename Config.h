@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <deque>
 
 #include <spdlog/common.h>
@@ -11,7 +12,8 @@ struct Config
 
     spdlog::level::level_enum logLevel = spdlog::level::info;
 
-    std::deque<ReStreamer> reStreamers;
+    std::map<std::string, ReStreamer> reStreamers; // uniqueId -> ReStreamer
+    std::deque<std::string> reStreamersOrder;
 };
 
 struct Config::ReStreamer {

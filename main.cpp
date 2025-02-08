@@ -101,12 +101,16 @@ bool LoadConfig(
 
         if(source && key) {
             g_autofree gchar* uniqueId = g_uuid_string_random();
-            loadedConfig.reStreamers.emplace_back(
+            const auto& emplaceResult = loadedConfig.reStreamers.emplace(
+                uniqueId,
                 Config::ReStreamer {
                     source,
                     std::string(),
                     key,
                     true });
+            if(emplaceResult.second) {
+                loadedConfig.reStreamersOrder.emplace_back(emplaceResult.first->first);
+            }
         }
 
         config_setting_t* streamersConfig = config_lookup(&config, "streamers");
@@ -131,12 +135,16 @@ bool LoadConfig(
 
                 if(source && key) {
                     g_autofree gchar* uniqueId = g_uuid_string_random();
-                    loadedConfig.reStreamers.emplace_back(
+                    const auto& emplaceResult = loadedConfig.reStreamers.emplace(
+                        uniqueId,
                         Config::ReStreamer {
                             source,
                             description,
                             key,
                             enabled != FALSE });
+                    if(emplaceResult.second) {
+                        loadedConfig.reStreamersOrder.emplace_back(emplaceResult.first->first);
+                    }
                 }
             }
         }
@@ -151,6 +159,8 @@ bool LoadConfig(
         *httpConfig = loadedHttpConfig;
         *config = loadedConfig;
     }
+
+    assert(config->reStreamers.size() == config->reStreamersOrder.size());
 
     return success;
 }
@@ -275,7 +285,8 @@ int main(int argc, char *argv[])
     ReStreamers reStreamers;
     std::deque<ReStreamContext> contexts;
 
-    for(const Config::ReStreamer& reStreamer: initialConfig.reStreamers) {
+    for(const auto& pair: initialConfig.reStreamers) {
+        const Config::ReStreamer& reStreamer = pair.second;
         reStreamers.emplace(
             reStreamer.source,
             std::make_unique<GstReStreamer2>(

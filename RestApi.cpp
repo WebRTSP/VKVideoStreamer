@@ -1,5 +1,7 @@
 #include "RestApi.h"
 
+#include <cassert>
+
 #include <glib.h>
 #include <jansson.h>
 
@@ -42,7 +44,7 @@ inline MHD_Response* ApplyDefaultHeaders(MHD_Response* response)
 }
 
 MHD_Response* HandleStreamersRequest(
-    const std::shared_ptr<const Config>& streamersConfig,
+    const std::shared_ptr<const Config>& config,
     const char* path
 ) {
     if(strcmp(path, "") != STRCMP_EQUAL && strcmp(path, "/") != STRCMP_EQUAL)
@@ -50,8 +52,15 @@ MHD_Response* HandleStreamersRequest(
 
     g_autoptr(json_t) array = json_array();
 
-    for(const Config::ReStreamer& reStreamer: streamersConfig->reStreamers) {
+    for(const std::string& reStreamerId: config->reStreamersOrder) {
+        const auto reStreamerIt = config->reStreamers.find(reStreamerId);
+        assert(reStreamerIt != config->reStreamers.end());
+        if(reStreamerIt == config->reStreamers.end())
+            continue;
+
+        const Config::ReStreamer& reStreamer = reStreamerIt->second;
         g_autoptr(json_t) object = json_object();
+        json_object_set_new(object, "id", json_string(reStreamerId.c_str()));
         json_object_set_new(object, "source", json_string(reStreamer.source.c_str()));
         json_object_set_new(object, "description", json_string(reStreamer.description.c_str()));
         json_object_set_new(object, "key", json_boolean(!reStreamer.key.empty()));
