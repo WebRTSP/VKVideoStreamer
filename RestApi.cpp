@@ -83,8 +83,8 @@ NotFound(MHD_Response* response = nullptr)
 std::pair<rest::StatusCode, MHD_Response*>
 HandleStreamersRequest(
     const std::shared_ptr<const Config>& config,
-    const char* path
-) {
+    const char* path)
+{
     if(strcmp(path, "") != STRCMP_EQUAL && strcmp(path, "/") != STRCMP_EQUAL)
         return BadRequest();
 
