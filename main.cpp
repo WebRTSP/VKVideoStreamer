@@ -165,63 +165,99 @@ bool LoadConfig(
     return success;
 }
 
-struct ReStreamContext {
-    std::unique_ptr<ReStreamer> reStreamer;
+typedef std::map<std::string, ReStreamer> RTMPReStreamers;
+typedef std::map<std::string, std::unique_ptr<GstStreamingSource>> ReStreamers;
+struct Context {
+    Config config;
+    ReStreamers reStreamers;
+    RTMPReStreamers rtpmReStreamers;
 };
 
-void StopReStream(ReStreamContext* context)
+void StopReStream(RTMPReStreamers* reStreamers, const std::string& reStreamerId)
 {
-    context->reStreamer.reset();
+    const auto& it = reStreamers->find(reStreamerId);
+    if(it == reStreamers->end()) return;
+
+    Log()->info("Stopping reStreaming \"{}\" (\"{}\")...", it->second.sourceUrl(), reStreamerId);
+    reStreamers->erase(it);
 }
 
-void ScheduleStartRestream(const Config::ReStreamer&, ReStreamContext*);
+void ScheduleStartReStream(const Config&, RTMPReStreamers*, const std::string& reStreamerId);
 
-void StartRestream(const Config::ReStreamer& reStreamer, ReStreamContext* context)
+void StartReStream(
+    const Config& config,
+    RTMPReStreamers* reStreamers,
+    const std::string& reStreamerId)
 {
-    StopReStream(context);
+    StopReStream(reStreamers, reStreamerId);
 
-    Log()->info("Restreaming \"{}\"", reStreamer.source);
+    const auto configIt = config.reStreamers.find(reStreamerId);
+    if(configIt == config.reStreamers.end()) {
+        Log()->error("Can't find reStreamer with id \"{}\"", reStreamerId);
+        return;
+    }
 
-    context->reStreamer =
-        std::make_unique<ReStreamer>(
-            reStreamer.source,
-            "rtmp://ovsu.mycdn.me/input/" + reStreamer.key,
-            [&reStreamer, context] () {
-                ScheduleStartRestream(reStreamer, context);
-            });
+    const Config::ReStreamer& reStreamerConfig = configIt->second;
 
-    context->reStreamer->start();
+    const auto reStreamerIt = reStreamers->find(reStreamerId);
+
+    if(reStreamerConfig.enabled) {
+        if(reStreamerIt == reStreamers->end()) {
+            Log()->info("ReStreaming \"{}\" (\"{}\")", reStreamerConfig.source, reStreamerId);
+        } else {
+            Log()->warn("Ignoring reStreaming request for already reStreaming source \"{}\" (\"{}\")...", reStreamerConfig.source, reStreamerId);
+        }
+    } else {
+        Log()->debug("Ignoring reStreaming request for disabled source \"{}\" (\"{}\")...", reStreamerConfig.source, reStreamerId);
+        assert(reStreamerIt == reStreamers->end());
+        return;
+    }
+
+    auto [it, inserted] = reStreamers->emplace(
+        std::piecewise_construct,
+        std::forward_as_tuple(reStreamerId),
+        std::forward_as_tuple(
+            reStreamerConfig.source,
+            "rtmp://ovsu.mycdn.me/input/" + configIt->second.key,
+            [&config, reStreamers, reStreamerId] () {
+                ScheduleStartReStream(config, reStreamers, reStreamerId);
+            }
+        ));
+    assert(inserted);
+
+    it->second.start();
 }
 
-void ScheduleStartRestream(const Config::ReStreamer& reStreamer, ReStreamContext* context)
+void ScheduleStartReStream(
+    const Config& config,
+    RTMPReStreamers* reStreamers,
+    const std::string& reStreamerId)
 {
     Log()->info("ReStreaming restart pending...");
 
+    typedef std::tuple<
+        const Config&,
+        RTMPReStreamers*,
+        const std::string&> Data;
+
     auto reconnect =
         [] (gpointer userData) -> gboolean {
-             auto* data =
-                reinterpret_cast<std::tuple<const Config::ReStreamer&, ReStreamContext*>*>(userData);
+             Data* data = reinterpret_cast<Data*>(userData);
 
-             StartRestream(std::get<0>(*data), std::get<1>(*data));
+             StartReStream(std::get<0>(*data), std::get<1>(*data), std::get<2>(*data));
 
              return false;
         };
-
-    auto* data = new std::tuple<const Config::ReStreamer&, ReStreamContext*>(reStreamer, context);
 
     g_timeout_add_seconds_full(
         G_PRIORITY_DEFAULT,
         RECONNECT_INTERVAL,
         GSourceFunc(reconnect),
-        data,
+        new Data(config, reStreamers, reStreamerId),
         [] (gpointer userData) {
-             auto* data =
-                reinterpret_cast<std::tuple<const Config::ReStreamer&, ReStreamContext*>*>(userData);
-             delete data;
+            delete reinterpret_cast<Data*>(userData);
         });
 }
-
-typedef std::map<std::string, std::unique_ptr<GstStreamingSource>> ReStreamers;
 
 static std::unique_ptr<WebRTCPeer> CreateWebRTCPeer(
     const ReStreamers& reStreamers,
@@ -248,6 +284,55 @@ std::unique_ptr<ServerSession> CreateWebRTSPSession(
             sendResponse);
 }
 
+void ConfigChanged(Context* context, const std::unique_ptr<ConfigChanges>& changes)
+{
+    Config& config = context->config;
+
+    const auto& reStreamersChanges = changes->reStreamersChanges;
+    for(const auto& pair: reStreamersChanges) {
+        const std::string& uniqueId = pair.first;
+        const ConfigChanges::ReStreamerChanges& reStreamerChanges = pair.second;
+
+        const auto& it = config.reStreamers.find(uniqueId);
+        if(it == config.reStreamers.end()) {
+            Log()->warn("Got change request for unknown reStreamer \"{}\"", uniqueId);
+            return;
+        }
+
+        Config::ReStreamer& reStreamerConfig = it->second;
+
+        if(reStreamerChanges.enabled) {
+            if(reStreamerConfig.enabled != *reStreamerChanges.enabled) {
+                reStreamerConfig.enabled = *reStreamerChanges.enabled;
+                if(reStreamerChanges.enabled) {
+                    StartReStream(config, &context->rtpmReStreamers, uniqueId);
+                } else {
+                    StopReStream(&context->rtpmReStreamers, uniqueId);
+                }
+            }
+        }
+    }
+
+    // FIXME? add config save to disk
+}
+
+void PostConfigChanges(Context* context, std::unique_ptr<ConfigChanges>&& changes)
+{
+    typedef std::tuple<Context*, std::unique_ptr<ConfigChanges>> Data;
+
+    g_idle_add_full(
+        G_PRIORITY_DEFAULT_IDLE,
+        [] (gpointer userData) -> gboolean {
+            Data& data = *static_cast<Data*>(userData);
+            ConfigChanged(std::get<0>(data), std::get<1>(data));
+            return G_SOURCE_REMOVE;
+        },
+        new Data(context, std::move(changes)),
+        [] (gpointer userData) {
+            delete static_cast<Data*>(userData);
+        });
+}
+
 }
 
 
@@ -262,7 +347,7 @@ int main(int argc, char *argv[])
 
     signalling::Config wsConfig;
 
-    Config initialConfig {};
+    Context context;
 
 #ifdef SNAPCRAFT_BUILD
     const gchar* snapPath = g_getenv("SNAP");
@@ -273,7 +358,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    if(!LoadConfig(&httpConfig, &wsConfig, &initialConfig))
+    if(!LoadConfig(&httpConfig, &wsConfig, &context.config))
         return -1;
 
 
@@ -282,23 +367,16 @@ int main(int argc, char *argv[])
     GMainLoopPtr loopPtr(g_main_loop_new(nullptr, FALSE));
     GMainLoop* loop = loopPtr.get();
 
-    ReStreamers reStreamers;
-    std::deque<ReStreamContext> contexts;
-
-    for(const auto& pair: initialConfig.reStreamers) {
+    for(const auto& pair: context.config.reStreamers) {
+        const std::string& uniqueId = pair.first;
         const Config::ReStreamer& reStreamer = pair.second;
-        reStreamers.emplace(
+        context.reStreamers.emplace(
             reStreamer.source,
             std::make_unique<GstReStreamer2>(
                 reStreamer.source,
                 reStreamer.forceH264ProfileLevelId));
 
-        if(!reStreamer.enabled)
-            continue;
-
-        ReStreamContext& context = *contexts.emplace(contexts.end());
-
-        StartRestream(reStreamer, &context);
+        StartReStream(context.config, &context.rtpmReStreamers, uniqueId);
     }
 
     std::unique_ptr<http::MicroServer> httpServerPtr;
@@ -316,9 +394,13 @@ int main(int argc, char *argv[])
                 http::MicroServer::OnNewAuthToken(),
                 std::bind(
                     &rest::HandleRequest,
-                    std::make_shared<Config>(initialConfig),
+                    std::make_shared<Config>(context.config),
+                    [context = &context] (std::unique_ptr<ConfigChanges>&& changes) {
+                        PostConfigChanges(context, std::move(changes));
+                    },
                     std::placeholders::_1,
-                    std::placeholders::_2),
+                    std::placeholders::_2,
+                    std::placeholders::_3),
                 nullptr);
         httpServerPtr->init();
     }
@@ -331,7 +413,7 @@ int main(int argc, char *argv[])
             std::bind(
                 CreateWebRTSPSession,
                 std::make_shared<WebRTCConfig>(),
-                std::ref(reStreamers),
+                std::ref(context.reStreamers),
                 std::placeholders::_1,
                 std::placeholders::_2));
         wsServerPtr->init();

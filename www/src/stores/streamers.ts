@@ -8,6 +8,7 @@ interface Streamer {
   description: string
   sourceUrl: string
   enabled: boolean
+  sendingUpdate: boolean
 }
 
 export const useStreamersStore = defineStore('streamers', () => {
@@ -15,22 +16,24 @@ export const useStreamersStore = defineStore('streamers', () => {
 
   const streamers = ref<Streamer[]>([])
 
+  const apiUrl = `${window.location.protocol}//${window.location.hostname}:${APIPort}/api/streamers`
+
   async function fetchStreamers() {
     if(fetchingStreamers.value) return
 
     fetchingStreamers.value = true
     try {
-      const url = `${window.location.protocol}//${window.location.hostname}:${APIPort}/api/streamers`
-      const response = await fetch(url)
+      const response = await fetch(apiUrl)
       if(!response.ok) return // FIXME?
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fetchedStreamers = (await response.json()).map((inStreamer: any) => {
         return {
-          id: crypto.randomUUID(),
+          id: inStreamer.id,
           description: inStreamer.description,
           sourceUrl: inStreamer.source,
           enabled: inStreamer.enabled,
+          sendingUpdate: false,
         }
       })
 
@@ -42,7 +45,31 @@ export const useStreamersStore = defineStore('streamers', () => {
     }
   }
 
+  async function toggleStreaming(streamerId: string) {
+    const streamer = streamers.value.find((streamer) => streamer.id == streamerId)
+    if(!streamer) return
+
+    try {
+      streamer.sendingUpdate = true
+      const newEnabled = !streamer.enabled
+      const response = await fetch(`${apiUrl}/${streamer.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ enable: newEnabled }),
+      })
+      if(!response.ok) return // FIXME?
+
+      streamer.enabled = newEnabled
+    } catch(error: unknown) {
+      console.error(`${error}`)
+    } finally {
+      streamer.sendingUpdate = false
+    }
+  }
+
   fetchStreamers()
 
-  return { fetchingStreamers, fetchStreamers, streamers }
+  return { fetchingStreamers, fetchStreamers, streamers, toggleStreaming }
 })

@@ -51,6 +51,29 @@ ApplyDefaultHeaders(std::pair<rest::StatusCode, MHD_Response*>&& response)
     return response;
 }
 
+inline std::pair<rest::StatusCode, MHD_Response*>
+ApplyOptionsHeaders(std::pair<rest::StatusCode, MHD_Response*>&& response)
+{
+    if(response.second) {
+        MHD_add_response_header(
+            response.second,
+            MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_METHODS,
+            "PATCH");
+        MHD_add_response_header(
+            response.second,
+            MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_HEADERS,
+            "content-type");
+#ifndef NDEBUG
+        MHD_add_response_header(
+            response.second,
+            MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN,
+            "*"); // FIXME?
+#endif
+    }
+
+    return response;
+}
+
 inline MHD_Response*
 FixResponse(MHD_Response* response)
 {
@@ -124,14 +147,76 @@ HandleStreamersRequest(
     return OK(response);
 }
 
+std::pair<rest::StatusCode, MHD_Response*>
+HandleStreamerPatch(
+    const std::shared_ptr<Config>& streamersConfig,
+    const rest::PostConfigChanges& postChanges,
+    const char* path,
+    const std::string_view& body)
+{
+    const char* id = path;
+
+    auto it = streamersConfig->reStreamers.find(id);
+    if(it == streamersConfig->reStreamers.end())
+        return NotFound();
+
+    Config::ReStreamer& reStreamerConfig = it->second;
+
+    g_autoptr(json_t) requestBody = json_loadb(body.data(), body.size(), 0, nullptr);
+    if(!requestBody || !json_is_object(requestBody))
+        return BadRequest();
+
+    std::unique_ptr<ConfigChanges> changes =  std::make_unique<ConfigChanges>();
+    ConfigChanges::ReStreamerChanges& reStreamerChanges =
+        changes->reStreamersChanges.emplace(id, ConfigChanges::ReStreamerChanges()).first->second;
+
+    bool hasChanges = false;
+    if(json_t* enable = json_object_get(requestBody, "enable")) {
+        if(!json_is_boolean(enable))
+            return BadRequest();
+
+        hasChanges = true;
+        reStreamerConfig.enabled = json_is_true(enable);
+        reStreamerChanges.enabled = reStreamerConfig.enabled;
+    }
+
+    if(!hasChanges) {
+        return BadRequest();
+    }
+
+    postChanges(std::move(changes));
+
+    return OK();
+}
+
+std::pair<rest::StatusCode, MHD_Response*>
+HandleStreamersPatch(
+    const std::shared_ptr<Config>& streamersConfig,
+    const rest::PostConfigChanges& postChanges,
+    const char* path,
+    const std::string_view& body)
+{
+    if(strcmp(path, "") == STRCMP_EQUAL ||
+        strcmp(path, "/") == STRCMP_EQUAL ||
+        !g_str_has_prefix(path, "/"))
+    {
+        return BadRequest(); // only PATCH for specific streamer is supported ATM
+    }
+
+    ++path; // to skip '/'
+    return HandleStreamerPatch(streamersConfig, postChanges, path, body);
+}
+
 }
 
 
 std::pair<rest::StatusCode, MHD_Response*>
 rest::HandleRequest(
     std::shared_ptr<Config>& streamersConfig,
+    const rest::PostConfigChanges& postChanges,
     http::Method method,
-    const char* uri)
+    const char* uri,
+    const std::string_view& body)
 {
     if(!uri)
         return InternalError();
@@ -166,6 +251,16 @@ rest::HandleRequest(
                         HandleStreamersRequest(
                             streamersConfig,
                             requestPath));
+            case Method::PATCH:
+                return
+                    ApplyDefaultHeaders(
+                        HandleStreamersPatch(
+                            streamersConfig,
+                            postChanges,
+                            requestPath,
+                            body));
+            case Method::OPTIONS:
+                return ApplyOptionsHeaders(OK()); // FIXME?
         }
     }
 

@@ -1,7 +1,9 @@
 #pragma once
 
+#include <set>
 #include <map>
 #include <deque>
+#include <optional>
 
 #include <spdlog/common.h>
 
@@ -22,4 +24,15 @@ struct Config::ReStreamer {
     std::string key;
     bool enabled;
     std::string forceH264ProfileLevelId = "42c015";
+};
+
+struct ConfigChanges
+{
+    struct ReStreamerChanges;
+
+    std::map<std::string, ReStreamerChanges> reStreamersChanges; // uniqueId -> ReStreamer
+};
+
+struct ConfigChanges::ReStreamerChanges {
+    std::optional<bool> enabled;
 };

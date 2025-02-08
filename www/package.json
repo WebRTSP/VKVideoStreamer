@@ -12,9 +12,10 @@
     "lint": "eslint . --fix"
   },
   "dependencies": {
-    "@primevue/themes": "^4.2.1",
+    "@primevue/themes": "^4.2.5",
     "pinia": "^2.2.4",
-    "primevue": "^4.2.1",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.2.5",
     "vue": "^3.5.12",
     "webrtsp": "github:WebRTSP/BrowserClient"
   },
