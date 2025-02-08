@@ -182,6 +182,15 @@ void StopReStream(RTMPReStreamers* reStreamers, const std::string& reStreamerId)
     reStreamers->erase(it);
 }
 
+std::string BuildTargetUrl(const Config& config, const Config::ReStreamer& reStreamerConfig)
+{
+    assert(config.targetUrl.size() >= 8); // expected at least rtmp://a
+    if(!config.targetUrl.empty() && *config.targetUrl.rbegin() == '/')
+        return config.targetUrl + reStreamerConfig.key;
+    else
+        return config.targetUrl + "/" + reStreamerConfig.key;
+}
+
 void ScheduleStartReStream(const Config&, RTMPReStreamers*, const std::string& reStreamerId);
 
 void StartReStream(
@@ -218,7 +227,7 @@ void StartReStream(
         std::forward_as_tuple(reStreamerId),
         std::forward_as_tuple(
             reStreamerConfig.source,
-            "rtmp://ovsu.mycdn.me/input/" + configIt->second.key,
+            BuildTargetUrl(config, reStreamerConfig),
             [&config, reStreamers, reStreamerId] () {
                 ScheduleStartReStream(config, reStreamers, reStreamerId);
             }

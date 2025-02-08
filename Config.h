@@ -14,6 +14,8 @@ struct Config
 
     spdlog::level::level_enum logLevel = spdlog::level::info;
 
+    std::string targetUrl = "rtmp://ovsu.okcdn.ru/input/";
+
     std::map<std::string, ReStreamer> reStreamers; // uniqueId -> ReStreamer
     std::deque<std::string> reStreamersOrder;
 };
