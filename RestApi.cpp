@@ -4,6 +4,7 @@
 
 #include <glib.h>
 #include <jansson.h>
+#include <microhttpd.h>
 
 
 const char *const rest::ApiPrefix = "/api";
@@ -129,7 +130,7 @@ HandleStreamersRequest(
 std::pair<rest::StatusCode, MHD_Response*>
 rest::HandleRequest(
     std::shared_ptr<Config>& streamersConfig,
-    const char* method,
+    http::Method method,
     const char* uri)
 {
     if(!uri)
@@ -158,8 +159,13 @@ rest::HandleRequest(
 
     if(g_str_has_prefix(requestPath, StreamersPrefix)) {
         requestPath += StreamersPrefixLen;
-        if(strcmp(method, MHD_HTTP_METHOD_GET) == STRCMP_EQUAL) {
-            return ApplyDefaultHeaders(HandleStreamersRequest(streamersConfig, requestPath));
+        switch(method) {
+            case Method::GET:
+                return
+                    ApplyDefaultHeaders(
+                        HandleStreamersRequest(
+                            streamersConfig,
+                            requestPath));
         }
     }
 
