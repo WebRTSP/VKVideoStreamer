@@ -33,7 +33,15 @@ static const auto Log = ReStreamerLog;
 
 namespace {
 
+const char* ConfigFileName = "vk-streamer.conf";
+
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(config_t, config_destroy)
+
+inline std::string
+UserConfigPath(const std::string& userConfigDir)
+{
+    return userConfigDir + "/" + ConfigFileName;
+}
 
 bool LoadConfig(
     http::Config* httpConfig,
@@ -49,7 +57,7 @@ bool LoadConfig(
     Config loadedConfig = *config;
 
     for(const std::string& configDir: configDirs) {
-        const std::string configFile = configDir + "/vk-streamer.conf";
+        const std::string& configFile = UserConfigPath(configDir);
         if(!g_file_test(configFile.c_str(),  G_FILE_TEST_IS_REGULAR)) {
             Log()->info("Config \"{}\" not found", configFile);
             continue;
