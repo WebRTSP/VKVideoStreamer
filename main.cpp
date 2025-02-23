@@ -4,7 +4,6 @@
 #include <gst/gst.h>
 
 #include "CxxPtr/GlibPtr.h"
-#include "CxxPtr/libconfigDestroy.h"
 
 #include "WebRTSP/Http/Config.h"
 #include "WebRTSP/Http/HttpMicroServer.h"
@@ -12,6 +11,8 @@
 #include "WebRTSP/Signalling/WsServer.h"
 #include "WebRTSP/Signalling/ServerSession.h"
 #include "WebRTSP/RtStreaming/GstRtStreaming/GstReStreamer2.h"
+
+#include <libconfig.h>
 
 #include "Log.h"
 #include "Defines.h"
@@ -31,6 +32,8 @@ static const auto Log = ReStreamerLog;
 
 
 namespace {
+
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(config_t, config_destroy)
 
 bool LoadConfig(
     http::Config* httpConfig,
@@ -52,9 +55,8 @@ bool LoadConfig(
             continue;
         }
 
-        config_t config;
+        g_auto(config_t) config;
         config_init(&config);
-        ConfigDestroy ConfigDestroy(&config);
 
         Log()->info("Loading config \"{}\"", configFile);
         if(!config_read_file(&config, configFile.c_str())) {
