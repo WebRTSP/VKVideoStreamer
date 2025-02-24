@@ -43,6 +43,27 @@ UserConfigPath(const std::string& userConfigDir)
     return userConfigDir + "/" + ConfigFileName;
 }
 
+std::map<std::string, Config::ReStreamer>::const_iterator
+FindStreamerId(
+    const Config& appConfig,
+    const char* source,
+    const char* key)
+{
+    const auto& reStreamers = appConfig.reStreamers;
+
+    for(auto it = reStreamers.begin(); it != reStreamers.end(); ++it) {
+        const Config::ReStreamer& reStreamer = it->second;
+        if(
+            reStreamer.source == source &&
+            reStreamer.key == key)
+        {
+            return it;
+        }
+    }
+
+    return reStreamers.end();
+}
+
 void LoadStreamers(const config_t& config, Config* loadedConfig)
 {
     auto& loadedReStreamers = loadedConfig->reStreamers;
@@ -73,6 +94,11 @@ void LoadStreamers(const config_t& config, Config* loadedConfig)
             }
             if(!key) {
                 Log()->warn("\"key\" property is empty. Streamer skipped.");
+                continue;
+            }
+
+            if(loadedReStreamers.end() != FindStreamerId(*loadedConfig, source, key)) {
+                Log()->warn("Found streamer with duplicated \"source\" and \"key\" properties. Streamer skipped.");
                 continue;
             }
 
