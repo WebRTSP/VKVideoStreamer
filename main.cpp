@@ -43,6 +43,47 @@ UserConfigPath(const std::string& userConfigDir)
     return userConfigDir + "/" + ConfigFileName;
 }
 
+void LoadStreamers(const config_t& config, Config* loadedConfig)
+{
+    auto& loadedReStreamers = loadedConfig->reStreamers;
+
+    config_setting_t* streamersConfig = config_lookup(&config, "streamers");
+    if(streamersConfig && CONFIG_TRUE == config_setting_is_list(streamersConfig)) {
+        const int streamersCount = config_setting_length(streamersConfig);
+        for(int streamerIdx = 0; streamerIdx < streamersCount; ++streamerIdx) {
+            config_setting_t* streamerConfig =
+                config_setting_get_elem(streamersConfig, streamerIdx);
+            if(!streamerConfig || CONFIG_FALSE == config_setting_is_group(streamerConfig)) {
+                Log()->warn("Wrong streamer config format. Streamer skipped.");
+                break;
+            }
+
+            const char* source = nullptr;
+            config_setting_lookup_string(streamerConfig, "source", &source);
+            const char* description = "";
+            config_setting_lookup_string(streamerConfig, "description", &description);
+            const char* key = nullptr;
+            config_setting_lookup_string(streamerConfig, "key", &key);
+            int enabled = TRUE;
+            config_setting_lookup_bool(streamerConfig, "enable", &enabled);
+
+            if(source && key) {
+                g_autofree gchar* uniqueId = g_uuid_string_random();
+                const auto& emplaceResult = loadedReStreamers.emplace(
+                    uniqueId,
+                    Config::ReStreamer {
+                        source,
+                        description,
+                        key,
+                        enabled != FALSE });
+                if(emplaceResult.second) {
+                    loadedConfig->reStreamersOrder.emplace_back(emplaceResult.first->first);
+                }
+            }
+        }
+    }
+}
+
 bool LoadConfig(
     http::Config* httpConfig,
     signalling::Config* wsConfig,
@@ -123,41 +164,7 @@ bool LoadConfig(
             }
         }
 
-        config_setting_t* streamersConfig = config_lookup(&config, "streamers");
-        if(streamersConfig && CONFIG_TRUE == config_setting_is_list(streamersConfig)) {
-            const int streamersCount = config_setting_length(streamersConfig);
-            for(int streamerIdx = 0; streamerIdx < streamersCount; ++streamerIdx) {
-                config_setting_t* streamerConfig =
-                    config_setting_get_elem(streamersConfig, streamerIdx);
-                if(!streamerConfig || CONFIG_FALSE == config_setting_is_group(streamerConfig)) {
-                    Log()->warn("Wrong streamer config format. Streamer skipped.");
-                    break;
-                }
-
-                const char* source = nullptr;
-                config_setting_lookup_string(streamerConfig, "source", &source);
-                const char* description = "";
-                config_setting_lookup_string(streamerConfig, "description", &description);
-                const char* key = nullptr;
-                config_setting_lookup_string(streamerConfig, "key", &key);
-                int enabled = TRUE;
-                config_setting_lookup_bool(streamerConfig, "enable", &enabled);
-
-                if(source && key) {
-                    g_autofree gchar* uniqueId = g_uuid_string_random();
-                    const auto& emplaceResult = loadedConfig.reStreamers.emplace(
-                        uniqueId,
-                        Config::ReStreamer {
-                            source,
-                            description,
-                            key,
-                            enabled != FALSE });
-                    if(emplaceResult.second) {
-                        loadedConfig.reStreamersOrder.emplace_back(emplaceResult.first->first);
-                    }
-                }
-            }
-        }
+        LoadStreamers(config, &loadedConfig);
     }
 
     bool success = true;
