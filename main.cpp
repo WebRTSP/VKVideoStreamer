@@ -67,6 +67,15 @@ void LoadStreamers(const config_t& config, Config* loadedConfig)
             int enabled = TRUE;
             config_setting_lookup_bool(streamerConfig, "enable", &enabled);
 
+            if(!source) {
+                Log()->warn("\"source\" property is empty. Streamer skipped.");
+                continue;
+            }
+            if(!key) {
+                Log()->warn("\"key\" property is empty. Streamer skipped.");
+                continue;
+            }
+
             if(source && key) {
                 g_autofree gchar* uniqueId = g_uuid_string_random();
                 const auto& emplaceResult = loadedReStreamers.emplace(
