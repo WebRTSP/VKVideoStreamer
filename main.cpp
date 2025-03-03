@@ -1,5 +1,6 @@
 #include <string>
 #include <deque>
+#include <optional>
 
 #include <gst/gst.h>
 
@@ -34,13 +35,69 @@ static const auto Log = ReStreamerLog;
 namespace {
 
 const char* ConfigFileName = "vk-streamer.conf";
+const char* AppConfigFileName = "vk-streamer.app.conf";
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(config_t, config_destroy)
+
+std::optional<std::string>
+AppConfigPath()
+{
+#ifdef SNAPCRAFT_BUILD
+    if(const gchar* snapData = g_getenv("SNAP_DATA")) {
+        std::string configFile = snapData;
+        configFile += "/";
+        configFile += AppConfigFileName;
+        return configFile;
+    }
+#endif
+
+    const std::deque<std::string> configDirs = ::ConfigDirs();
+    if(!configDirs.empty())
+        return *configDirs.rbegin() + "/" + AppConfigFileName;
+
+    return {};
+}
 
 inline std::string
 UserConfigPath(const std::string& userConfigDir)
 {
     return userConfigDir + "/" + ConfigFileName;
+}
+
+void SaveAppConfig(const Config& appConfig)
+{
+    const std::optional<std::string>& targetPath = AppConfigPath();
+    if(!targetPath) return;
+
+    const auto& reStreamers = appConfig.reStreamers;
+
+    Log()->info("Writing config to \"{}\"", *targetPath);
+
+    g_auto(config_t) config;
+    config_init(&config);
+
+    config_setting_t* root = config_root_setting(&config);
+    config_setting_t* streamers = config_setting_add(root, "streamers", CONFIG_TYPE_LIST);
+
+    for(auto it = reStreamers.begin(); it != reStreamers.end(); ++it) {
+        config_setting_t* streamer = config_setting_add(streamers, nullptr, CONFIG_TYPE_GROUP);
+
+        config_setting_t* id = config_setting_add(streamer, "id", CONFIG_TYPE_STRING);
+        config_setting_set_string(id, it->first.c_str());
+
+        config_setting_t* source = config_setting_add(streamer, "source", CONFIG_TYPE_STRING);
+        config_setting_set_string(source, it->second.source.c_str());
+
+        config_setting_t* key = config_setting_add(streamer, "key", CONFIG_TYPE_STRING);
+        config_setting_set_string(key, it->second.key.c_str());
+    }
+
+    if(!config_write_file(&config, targetPath->c_str())) {
+        Log()->error("Fail save config. {}. {}:{}",
+            config_error_text(&config),
+            *targetPath,
+            config_error_line(&config));
+    };
 }
 
 std::map<std::string, Config::ReStreamer>::const_iterator
@@ -64,8 +121,13 @@ FindStreamerId(
     return reStreamers.end();
 }
 
-void LoadStreamers(const config_t& config, Config* loadedConfig)
+void LoadStreamers(
+    const config_t& config,
+    Config* loadedConfig,
+    const Config* appConfig)
 {
+    const bool userConfigLoading = appConfig != nullptr;
+
     auto& loadedReStreamers = loadedConfig->reStreamers;
 
     config_setting_t* streamersConfig = config_lookup(&config, "streamers");
@@ -79,6 +141,10 @@ void LoadStreamers(const config_t& config, Config* loadedConfig)
                 break;
             }
 
+            const char* id = nullptr;
+            if(!userConfigLoading) {
+                config_setting_lookup_string(streamerConfig, "id", &id);
+            }
             const char* source = nullptr;
             config_setting_lookup_string(streamerConfig, "source", &source);
             const char* description = "";
@@ -102,18 +168,28 @@ void LoadStreamers(const config_t& config, Config* loadedConfig)
                 continue;
             }
 
-            if(source && key) {
-                g_autofree gchar* uniqueId = g_uuid_string_random();
-                const auto& emplaceResult = loadedReStreamers.emplace(
-                    uniqueId,
-                    Config::ReStreamer {
-                        source,
-                        description,
-                        key,
-                        enabled != FALSE });
-                if(emplaceResult.second) {
-                    loadedConfig->reStreamersOrder.emplace_back(emplaceResult.first->first);
+            if(appConfig) {
+                const auto it = FindStreamerId(*appConfig, source, key);
+                if(it != appConfig->reStreamers.end()) {
+                    id = it->first.c_str(); // use id generated on some previous launch
                 }
+            }
+
+            g_autofree gchar* uniqueId = nullptr;
+            if(!id) {
+                uniqueId = g_uuid_string_random();
+                id = uniqueId;
+            }
+
+            const auto& emplaceResult = loadedConfig->reStreamers.emplace(
+                id,
+                Config::ReStreamer {
+                    source,
+                    description,
+                    key,
+                    enabled != FALSE });
+            if(emplaceResult.second) {
+                loadedConfig->reStreamersOrder.emplace_back(emplaceResult.first->first);
             }
         }
     }
@@ -131,6 +207,25 @@ bool LoadConfig(
     http::Config loadedHttpConfig = *httpConfig;
     signalling::Config loadedWsConfig = *wsConfig;
     Config loadedConfig = *config;
+    Config loadedAppConfig;
+
+    if(const auto& appConfigPath = AppConfigPath()) {
+        if(g_file_test(appConfigPath->c_str(), G_FILE_TEST_IS_REGULAR)) {
+            g_auto(config_t) config;
+            config_init(&config);
+
+            Log()->info("Loading config \"{}\"", *appConfigPath);
+            if(!config_read_file(&config, appConfigPath->c_str())) {
+                Log()->error("Fail load config. {}. {}:{}",
+                    config_error_text(&config),
+                    *appConfigPath,
+                    config_error_line(&config));
+                return false;
+            }
+
+            LoadStreamers(config, &loadedAppConfig, nullptr);
+        }
+    }
 
     for(const std::string& configDir: configDirs) {
         const std::string& configFile = UserConfigPath(configDir);
@@ -199,7 +294,7 @@ bool LoadConfig(
             }
         }
 
-        LoadStreamers(config, &loadedConfig);
+        LoadStreamers(config, &loadedConfig, &loadedAppConfig);
     }
 
     bool success = true;
@@ -210,6 +305,8 @@ bool LoadConfig(
     if(success) {
         *httpConfig = loadedHttpConfig;
         *config = loadedConfig;
+
+        SaveAppConfig(*config);
     }
 
     assert(config->reStreamers.size() == config->reStreamersOrder.size());
