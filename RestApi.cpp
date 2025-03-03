@@ -40,6 +40,10 @@ ApplyDefaultHeaders(std::pair<rest::StatusCode, MHD_Response*>&& response)
             response.second,
             MHD_HTTP_HEADER_CONTENT_TYPE,
             CONTENT_TYPE_APPLICATION_JSON);
+        MHD_add_response_header(
+            response.second,
+            MHD_HTTP_HEADER_CACHE_CONTROL,
+            "no-store");
 #ifndef NDEBUG
         MHD_add_response_header(
             response.second,
