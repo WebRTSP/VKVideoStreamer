@@ -400,11 +400,11 @@ void ScheduleStartReStream(
 
     auto reconnect =
         [] (gpointer userData) -> gboolean {
-             Data* data = reinterpret_cast<Data*>(userData);
+            Data* data = reinterpret_cast<Data*>(userData);
 
-             StartReStream(std::get<0>(*data), std::get<1>(*data), std::get<2>(*data));
+            StartReStream(std::get<0>(*data), std::get<1>(*data), std::get<2>(*data));
 
-             return false;
+            return false;
         };
 
     g_timeout_add_seconds_full(
