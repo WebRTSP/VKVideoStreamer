@@ -319,7 +319,7 @@ typedef std::map<std::string, std::unique_ptr<GstStreamingSource>> ReStreamers;
 struct Context {
     Config config;
     ReStreamers reStreamers;
-    RTMPReStreamers rtpmReStreamers;
+    RTMPReStreamers rtmpReStreamers;
 };
 
 void StopReStream(RTMPReStreamers* reStreamers, const std::string& reStreamerId)
@@ -463,9 +463,9 @@ void ConfigChanged(Context* context, const std::unique_ptr<ConfigChanges>& chang
             if(reStreamerConfig.enabled != *reStreamerChanges.enabled) {
                 reStreamerConfig.enabled = *reStreamerChanges.enabled;
                 if(reStreamerChanges.enabled) {
-                    StartReStream(config, &context->rtpmReStreamers, uniqueId);
+                    StartReStream(config, &context->rtmpReStreamers, uniqueId);
                 } else {
-                    StopReStream(&context->rtpmReStreamers, uniqueId);
+                    StopReStream(&context->rtmpReStreamers, uniqueId);
                 }
             }
         }
@@ -534,7 +534,7 @@ int main(int argc, char *argv[])
                 reStreamer.source,
                 reStreamer.forceH264ProfileLevelId));
 
-        StartReStream(context.config, &context.rtpmReStreamers, uniqueId);
+        StartReStream(context.config, &context.rtmpReStreamers, uniqueId);
     }
 
     std::unique_ptr<http::MicroServer> httpServerPtr;
