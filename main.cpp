@@ -378,7 +378,12 @@ void StartReStream(
             reStreamerConfig.source,
             BuildTargetUrl(config, reStreamerConfig),
             [&config, reStreamers, reStreamerId] () {
-                ScheduleStartReStream(config, reStreamers, reStreamerId);
+                // it's required to do reStreamerId copy
+                // since ReStreamer instance
+                // will be destroyed inside ScheduleStartReStream
+                // and as consequence current lambda with all captures
+                // will be destroyed too
+                ScheduleStartReStream(config, reStreamers, std::string(reStreamerId));
             }
         ));
     assert(inserted);
@@ -396,7 +401,7 @@ void ScheduleStartReStream(
     typedef std::tuple<
         const Config&,
         RTMPReStreamers*,
-        const std::string&> Data;
+        std::string> Data;
 
     auto reconnect =
         [] (gpointer userData) -> gboolean {
