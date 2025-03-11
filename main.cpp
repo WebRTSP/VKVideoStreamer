@@ -320,15 +320,25 @@ struct Context {
     Config config;
     ReStreamers reStreamers;
     RTMPReStreamers rtmpReStreamers;
+    std::map<std::string, guint> restarting; // reStreamerId -> timeout event source id
 };
 
-void StopReStream(RTMPReStreamers* reStreamers, const std::string& reStreamerId)
+void StopReStream(Context* context, const std::string& reStreamerId)
 {
-    const auto& it = reStreamers->find(reStreamerId);
-    if(it == reStreamers->end()) return;
+    auto restartingIt = context->restarting.find(reStreamerId);
+    if(restartingIt != context->restarting.end()) {
+        Log()->info("Cancelling pending reStreaming restart for \"{}\"...", reStreamerId);
+        g_source_remove(restartingIt->second);
+        context->restarting.erase(restartingIt);
+    }
 
-    Log()->info("Stopping reStreaming \"{}\" (\"{}\")...", it->second.sourceUrl(), reStreamerId);
-    reStreamers->erase(it);
+    RTMPReStreamers* reStreamers = &(context->rtmpReStreamers);
+    const auto& it = reStreamers->find(reStreamerId);
+    if(it != reStreamers->end()) {
+        Log()->info("Stopping active reStreaming \"{}\" (\"{}\")...", it->second.sourceUrl(), reStreamerId);
+        reStreamers->erase(it);
+    }
+
 }
 
 std::string BuildTargetUrl(const Config& config, const Config::ReStreamer& reStreamerConfig)
@@ -340,14 +350,17 @@ std::string BuildTargetUrl(const Config& config, const Config::ReStreamer& reStr
         return config.targetUrl + "/" + reStreamerConfig.key;
 }
 
-void ScheduleStartReStream(const Config&, RTMPReStreamers*, const std::string& reStreamerId);
+void ScheduleStartReStream(Context* context, const std::string& reStreamerId);
 
 void StartReStream(
-    const Config& config,
-    RTMPReStreamers* reStreamers,
+    Context* context,
     const std::string& reStreamerId)
 {
-    StopReStream(reStreamers, reStreamerId);
+    const Config& config = context->config;
+    RTMPReStreamers* reStreamers = &(context->rtmpReStreamers);
+
+    assert(reStreamers->find(reStreamerId) == reStreamers->end());
+    StopReStream(context, reStreamerId);
 
     const auto configIt = config.reStreamers.find(reStreamerId);
     if(configIt == config.reStreamers.end()) {
@@ -377,13 +390,13 @@ void StartReStream(
         std::forward_as_tuple(
             reStreamerConfig.source,
             BuildTargetUrl(config, reStreamerConfig),
-            [&config, reStreamers, reStreamerId] () {
+            [context, reStreamerId] () {
                 // it's required to do reStreamerId copy
                 // since ReStreamer instance
                 // will be destroyed inside ScheduleStartReStream
                 // and as consequence current lambda with all captures
                 // will be destroyed too
-                ScheduleStartReStream(config, reStreamers, std::string(reStreamerId));
+                ScheduleStartReStream(context, std::string(reStreamerId));
             }
         ));
     assert(inserted);
@@ -392,34 +405,47 @@ void StartReStream(
 }
 
 void ScheduleStartReStream(
-    const Config& config,
-    RTMPReStreamers* reStreamers,
+    Context* context,
     const std::string& reStreamerId)
 {
+    if(context->restarting.find(reStreamerId) != context->restarting.end()) {
+        Log()->debug("ReStreamer restart already pending. Ignoring new request...");
+        return;
+    }
+
     Log()->info("ReStreaming restart pending...");
 
+    const Config& config = context->config;
+    RTMPReStreamers* reStreamers = &(context->rtmpReStreamers);
+
+    assert(reStreamers->find(reStreamerId) != reStreamers->end());
+    StopReStream(context, reStreamerId);
+
     typedef std::tuple<
-        const Config&,
-        RTMPReStreamers*,
+        Context*,
         std::string> Data;
 
     auto reconnect =
         [] (gpointer userData) -> gboolean {
-            Data* data = reinterpret_cast<Data*>(userData);
+            const auto& [context, reStreamerId] = *reinterpret_cast<Data*>(userData);
 
-            StartReStream(std::get<0>(*data), std::get<1>(*data), std::get<2>(*data));
+            context->restarting.erase(reStreamerId);
+
+            StartReStream(context, reStreamerId);
 
             return false;
         };
 
-    g_timeout_add_seconds_full(
+    const guint timeoutId = g_timeout_add_seconds_full(
         G_PRIORITY_DEFAULT,
         RECONNECT_INTERVAL,
         GSourceFunc(reconnect),
-        new Data(config, reStreamers, reStreamerId),
+        new Data(context, reStreamerId),
         [] (gpointer userData) {
             delete reinterpret_cast<Data*>(userData);
         });
+
+    context->restarting.emplace(reStreamerId, timeoutId);
 }
 
 static std::unique_ptr<WebRTCPeer> CreateWebRTCPeer(
@@ -468,9 +494,9 @@ void ConfigChanged(Context* context, const std::unique_ptr<ConfigChanges>& chang
             if(reStreamerConfig.enabled != *reStreamerChanges.enabled) {
                 reStreamerConfig.enabled = *reStreamerChanges.enabled;
                 if(reStreamerChanges.enabled) {
-                    StartReStream(config, &context->rtmpReStreamers, uniqueId);
+                    StartReStream(context, uniqueId);
                 } else {
-                    StopReStream(&context->rtmpReStreamers, uniqueId);
+                    StopReStream(context, uniqueId);
                 }
             }
         }
@@ -539,7 +565,7 @@ int main(int argc, char *argv[])
                 reStreamer.source,
                 reStreamer.forceH264ProfileLevelId));
 
-        StartReStream(context.config, &context.rtmpReStreamers, uniqueId);
+        StartReStream(&context, uniqueId);
     }
 
     std::unique_ptr<http::MicroServer> httpServerPtr;
