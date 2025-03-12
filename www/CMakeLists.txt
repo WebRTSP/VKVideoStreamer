@@ -19,7 +19,8 @@ add_custom_command(
     DEPENDS ${SOURCES} ${PUBLIC} ${SRC}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMAND [ ! -d ./node_modules ] && npm install || true
-    COMMAND npm run build)
+    COMMAND npm run type-check
+    COMMAND npm run build-only)
 
 add_custom_target(${PROJECT_NAME} ALL
     SOURCES ${SOURCES} ${PUBLIC} ${SRC}
