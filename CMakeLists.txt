@@ -7,7 +7,7 @@ if(DEFINED ENV{SNAPCRAFT_PROJECT_NAME})
     set(SNAPCRAFT_BUILD YES)
 endif()
 
-set(ONVIF_SUPPORT OFF)
+set(ONVIF_SUPPORT OFF CACHE BOOL "")
 add_subdirectory(WebRTSP)
 add_subdirectory(www)
 

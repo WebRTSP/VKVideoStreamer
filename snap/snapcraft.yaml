@@ -54,18 +54,25 @@ parts:
       - make
       - libspdlog-dev
       - libconfig-dev
+      - libnice-dev
       - libgstreamer1.0-dev
+      - libgstreamer-plugins-base1.0-dev
+      - libgstreamer-plugins-bad1.0-dev
       - libgssdp-1.6-dev
       - libmicrohttpd-dev
       - libjansson-dev
+      - libwebsockets-dev
     stage-packages:
       - libconfig9
       - libspdlog1.12
       - gstreamer1.0-plugins-good
       - gstreamer1.0-plugins-bad
+      - gstreamer1.0-nice
       - libgssdp-1.6-0
       - libmicrohttpd12
       - libjansson4
+      - libwebsockets19t64
+      - libwebsockets-evlib-glib
 
 apps:
   VkVideoStreamer:
