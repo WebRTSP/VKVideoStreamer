@@ -67,13 +67,15 @@ gboolean ReStreamer::onBusMessage(GstMessage* message)
             onEos(false);
             break;
         case GST_MESSAGE_ERROR: {
-            gchar* debug;
-            GError* error;
-
+            g_autofree gchar* debug = nullptr;
+            g_autoptr(GError) error = nullptr;
             gst_message_parse_error(message, &error, &debug);
 
-            g_free(debug);
-            g_error_free(error);
+            if(debug) {
+                Log()->error("Got error from GStreamer pipeline:\n{}\n{}", error->message, debug);
+            } else {
+                Log()->error("Got error from GStreamer pipeline:\n{}", error->message);
+            }
 
             onEos(true);
             break;
@@ -86,6 +88,8 @@ gboolean ReStreamer::onBusMessage(GstMessage* message)
                 break;
 
             if(gst_message_has_name(message, "eos")) {
+                Log()->error("Got EOS from GStreamer pipeline");
+
                 gboolean error = FALSE;
                 gst_structure_get_boolean(structure, "error", &error);
                 onEos(error != FALSE);
