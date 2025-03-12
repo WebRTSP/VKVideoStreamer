@@ -493,7 +493,7 @@ void ConfigChanged(Context* context, const std::unique_ptr<ConfigChanges>& chang
         if(reStreamerChanges.enabled) {
             if(reStreamerConfig.enabled != *reStreamerChanges.enabled) {
                 reStreamerConfig.enabled = *reStreamerChanges.enabled;
-                if(reStreamerChanges.enabled) {
+                if(reStreamerConfig.enabled) {
                     StartReStream(context, uniqueId);
                 } else {
                     StopReStream(context, uniqueId);
