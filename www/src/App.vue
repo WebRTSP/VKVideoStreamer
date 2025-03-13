@@ -59,7 +59,7 @@ const streamers = useStreamersStore()
     display: inline-block;
     width: 100%;
     overflow: hidden;
-    text-overflow:ellipsis;
+    text-overflow: ellipsis;
   }
 
   .card-footer {
