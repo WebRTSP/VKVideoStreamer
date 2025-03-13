@@ -9,25 +9,11 @@ body {
   min-height: 100vh;
 }
 
-body > #app {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--cards-gap);
-}
-
 /* min-width: calc(var(--card-width) * var(--cards-in-row) + (var(--cards-in-row) + 1) * var(--cards-gap))*/
 @media (min-width: 79rem) {
   body {
     display: flex;
     align-items: start;
     justify-content: center;
-  }
-
-  body > #app {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-auto-flow: row;
-    gap: var(--cards-gap);
   }
 }
