@@ -2,6 +2,15 @@ cmake_minimum_required(VERSION 3.5)
 
 project(VKVideoStreamer)
 
+option(VK_VIDEO_STREAMER "Build as VK Video Streamer" ON)
+option(YOUTUBE_LIVE_STREAMER "Build as YouTube Live Streamer" OFF)
+
+if(VK_VIDEO_STREAMER)
+    add_definitions(-DVK_VIDEO_STREAMER=1)
+elseif(YOUTUBE_LIVE_STREAMER)
+    add_definitions(-DYOUTUBE_LIVE_STREAMER=1)
+endif()
+
 if(DEFINED ENV{SNAPCRAFT_PROJECT_NAME})
     add_definitions(-DSNAPCRAFT_BUILD=1)
     set(SNAPCRAFT_BUILD YES)
@@ -50,6 +59,12 @@ target_link_libraries(${PROJECT_NAME}
     Signalling
     RtStreaming
     Threads::Threads)
+
+if(VK_VIDEO_STREAMER)
+    set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "VKVideoStreamer")
+elseif(YOUTUBE_LIVE_STREAMER)
+    set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "YouTubeLiveStreamer")
+endif()
 
 if(SNAPCRAFT_BUILD)
     install(TARGETS ${PROJECT_NAME} DESTINATION bin)
