@@ -1,0 +1,3 @@
+#!/bin/sh -e
+
+cp "$SNAP/opt/$SNAP_NAME/etc/rtmp-streamer.conf.sample" "$SNAP_COMMON/rtmp-streamer.conf"

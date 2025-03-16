@@ -1,0 +1,83 @@
+name: rtmp-video-streamer
+base: core24
+summary: RTMP Video Streamer
+adopt-info: streamer
+description: |
+  Intended to help stream your IP Cam to RTMP Server.
+  _Note: only cams with h264 codec are supported at the moment_
+
+  **Getting started**
+  0. [RaspberryPi + Raspbian/Raspberry Pi OS] Update `snapd` to the latest available version according to https://forum.snapcraft.io/t/installing-snap-on-debian
+  1. Install snap: `sudo snap install rtmp-video-streamer --edge`
+  2. Open config file for edit: `sudoedit /var/snap/rtmp-video-streamer/common/rtmp-streamer.conf`
+  4. Replace `source` value with desired RTSP URL
+  4. Replace `target` value with target RTMP server URL
+  6. Restart snap: `sudo snap restart rtmp-video-streamer`
+
+  **Hints**
+  * You can view configured video streams by opening http://localhost:4080 in browser
+
+  **Troubleshooting**
+  * Create issue on https://github.com/WebRTSP/RTMPVideoStreamer/issues
+  * Look to the logs with `sudo snap logs rtmp-video-streamer` or `sudo snap logs rtmp-video-streamer -f`
+license: GPL-3.0
+grade: devel
+confinement: strict
+
+platforms:
+  amd64:
+  arm64:
+
+environment:
+  GST_DEBUG: 2
+  GST_DEBUG_NO_COLOR: 1
+  GST_PLUGIN_SCANNER: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+  GST_PLUGIN_SYSTEM_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gstreamer-1.0
+
+parts:
+  streamer:
+    plugin: cmake
+    source-type: git
+    source: .
+    source-branch: master
+    override-pull: |
+        craftctl default
+        craftctl set version="$(git describe --always)"
+    cmake-parameters:
+      - -DCMAKE_INSTALL_PREFIX=/opt/${CRAFT_PROJECT_NAME}
+      - -DCMAKE_BUILD_TYPE=Release
+    build-snaps:
+      - node/22/stable
+    build-packages:
+      - pkg-config
+      - g++
+      - make
+      - libspdlog-dev
+      - libconfig-dev
+      - libnice-dev
+      - libgstreamer1.0-dev
+      - libgstreamer-plugins-base1.0-dev
+      - libgstreamer-plugins-bad1.0-dev
+      - libgssdp-1.6-dev
+      - libmicrohttpd-dev
+      - libjansson-dev
+      - libwebsockets-dev
+    stage-packages:
+      - libconfig9
+      - libspdlog1.12
+      - gstreamer1.0-plugins-good
+      - gstreamer1.0-plugins-bad
+      - gstreamer1.0-nice
+      - libgssdp-1.6-0
+      - libmicrohttpd12
+      - libjansson4
+      - libwebsockets19t64
+      - libwebsockets-evlib-glib
+
+apps:
+  VideoStreamer:
+    command: opt/${CRAFT_PROJECT_NAME}/bin/RTMPVideoStreamer
+    daemon: simple
+    plugs:
+      - network
+      - network-bind
