@@ -129,7 +129,6 @@ HandleStreamersRequest(
         json_object_set_new(object, "id", json_string(reStreamerId.c_str()));
         json_object_set_new(object, "source", json_string(reStreamer.sourceUrl.c_str()));
         json_object_set_new(object, "description", json_string(reStreamer.description.c_str()));
-        json_object_set_new(object, "key", json_boolean(!reStreamer.key.empty()));
         json_object_set_new(object, "enabled", json_boolean(reStreamer.enabled));
         json_array_append_new(array, object);
         object = nullptr;

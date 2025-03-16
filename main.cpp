@@ -88,8 +88,8 @@ void SaveAppConfig(const Config& appConfig)
         config_setting_t* source = config_setting_add(streamer, "source", CONFIG_TYPE_STRING);
         config_setting_set_string(source, it->second.sourceUrl.c_str());
 
-        config_setting_t* key = config_setting_add(streamer, "key", CONFIG_TYPE_STRING);
-        config_setting_set_string(key, it->second.key.c_str());
+        config_setting_t* target = config_setting_add(streamer, "target", CONFIG_TYPE_STRING);
+        config_setting_set_string(target, it->second.targetUrl.c_str());
     }
 
     if(!config_write_file(&config, targetPath->c_str())) {
@@ -100,20 +100,44 @@ void SaveAppConfig(const Config& appConfig)
     };
 }
 
+std::string BuildTargetUrl(
+    const Config& config,
+    const char* targetUrl,
+    const char* key)
+{
+#if VK_VIDEO_STREAMER || YOUTUBE_LIVE_STREAMER
+    std::string outTargetUrl(targetUrl ? std::string_view(targetUrl) : config.targetUrl);
+#else
+    std::string outTargetUrl = targetUrl;
+#endif
+
+    std::string::size_type placeholderPos = outTargetUrl.find(
+        Config::KeyPlaceholder.data(),
+        Config::KeyPlaceholder.size());
+    if(placeholderPos == std::string::npos) {
+        return outTargetUrl;
+    } else if(key) {
+        return outTargetUrl.replace(
+            placeholderPos,
+            Config::KeyPlaceholder.size(),
+            key);
+    } else {
+        assert(false);
+        return std::string();
+    }
+}
+
 std::map<std::string, Config::ReStreamer>::const_iterator
 FindStreamerId(
     const Config& appConfig,
-    const char* source,
-    const char* key)
+    const std::string_view& sourceUrl,
+    const std::string& targetUrl)
 {
     const auto& reStreamers = appConfig.reStreamers;
 
     for(auto it = reStreamers.begin(); it != reStreamers.end(); ++it) {
         const Config::ReStreamer& reStreamer = it->second;
-        if(
-            reStreamer.sourceUrl == source &&
-            reStreamer.key == key)
-        {
+        if(reStreamer.sourceUrl == sourceUrl && reStreamer.targetUrl == targetUrl) {
             return it;
         }
     }
@@ -147,6 +171,8 @@ void LoadStreamers(
             }
             const char* source = nullptr;
             config_setting_lookup_string(streamerConfig, "source", &source);
+            const char* target = nullptr;
+            config_setting_lookup_string(streamerConfig, "target", &target);
             const char* description = "";
             config_setting_lookup_string(streamerConfig, "description", &description);
             const char* key = nullptr;
@@ -158,18 +184,35 @@ void LoadStreamers(
                 Log()->warn("\"source\" property is empty. Streamer skipped.");
                 continue;
             }
-            if(!key) {
-                Log()->warn("\"key\" property is empty. Streamer skipped.");
+
+            bool needsKey = true;
+            if(target) {
+                std::string_view targetView = target;
+                needsKey = targetView.find(
+                    Config::KeyPlaceholder.data(),
+                    Config::KeyPlaceholder.size()) != std::string_view::npos;
+#if VK_VIDEO_STREAMER || YOUTUBE_LIVE_STREAMER
+            } else if(loadedConfig->targetUrl.empty()) {
+#else
+            } else {
+#endif
+                Log()->warn("\"target\" property is missing. Streamer skipped.");
                 continue;
             }
 
-            if(loadedReStreamers.end() != FindStreamerId(*loadedConfig, source, key)) {
+            if(needsKey && (!key || key[0] == '\0')) {
+                Log()->warn("\"key\" property is missing. Streamer skipped.");
+                continue;
+            }
+
+            const std::string targetUrl = BuildTargetUrl(*loadedConfig, target, key);
+            if(loadedReStreamers.end() != FindStreamerId(*loadedConfig, source, targetUrl)) {
                 Log()->warn("Found streamer with duplicated \"source\" and \"key\" properties. Streamer skipped.");
                 continue;
             }
 
             if(appConfig) {
-                const auto it = FindStreamerId(*appConfig, source, key);
+                const auto it = FindStreamerId(*appConfig, source, targetUrl);
                 if(it != appConfig->reStreamers.end()) {
                     id = it->first.c_str(); // use id generated on some previous launch
                 }
@@ -186,7 +229,7 @@ void LoadStreamers(
                 Config::ReStreamer {
                     source,
                     description,
-                    key,
+                    targetUrl,
                     enabled != FALSE });
             if(emplaceResult.second) {
                 loadedConfig->reStreamersOrder.emplace_back(emplaceResult.first->first);
@@ -287,7 +330,7 @@ bool LoadConfig(
                 Config::ReStreamer {
                     source,
                     std::string(),
-                    key,
+                    BuildTargetUrl(loadedConfig, nullptr, key),
                     true });
             if(emplaceResult.second) {
                 loadedConfig.reStreamersOrder.emplace_back(emplaceResult.first->first);
@@ -341,15 +384,6 @@ void StopReStream(Context* context, const std::string& reStreamerId)
 
 }
 
-std::string BuildTargetUrl(const Config& config, const Config::ReStreamer& reStreamerConfig)
-{
-    assert(config.targetUrl.size() >= 8); // expected at least rtmp://a
-    if(!config.targetUrl.empty() && *config.targetUrl.rbegin() == '/')
-        return config.targetUrl + reStreamerConfig.key;
-    else
-        return config.targetUrl + "/" + reStreamerConfig.key;
-}
-
 void ScheduleStartReStream(Context* context, const std::string& reStreamerId);
 
 void StartReStream(
@@ -395,7 +429,7 @@ void StartReStream(
         std::forward_as_tuple(reStreamerId),
         std::forward_as_tuple(
             reStreamerConfig.sourceUrl,
-            BuildTargetUrl(config, reStreamerConfig),
+            reStreamerConfig.targetUrl,
             [context, reStreamerId] () {
                 // it's required to do reStreamerId copy
                 // since ReStreamer instance
