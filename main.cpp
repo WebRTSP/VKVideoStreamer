@@ -569,8 +569,8 @@ int main(int argc, char *argv[])
 {
     http::Config httpConfig {
         .port = DEFAULT_HTTP_PORT,
-        .realm = "VKVideoStreamer",
-        .opaque = "VKVideoStreamer",
+        .realm = "VideoStreamer",
+        .opaque = "VideoStreamer",
         .apiPrefix = rest::ApiPrefix,
     };
 
