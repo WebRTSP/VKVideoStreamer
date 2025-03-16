@@ -86,7 +86,7 @@ void SaveAppConfig(const Config& appConfig)
         config_setting_set_string(id, it->first.c_str());
 
         config_setting_t* source = config_setting_add(streamer, "source", CONFIG_TYPE_STRING);
-        config_setting_set_string(source, it->second.source.c_str());
+        config_setting_set_string(source, it->second.sourceUrl.c_str());
 
         config_setting_t* key = config_setting_add(streamer, "key", CONFIG_TYPE_STRING);
         config_setting_set_string(key, it->second.key.c_str());
@@ -111,7 +111,7 @@ FindStreamerId(
     for(auto it = reStreamers.begin(); it != reStreamers.end(); ++it) {
         const Config::ReStreamer& reStreamer = it->second;
         if(
-            reStreamer.source == source &&
+            reStreamer.sourceUrl == source &&
             reStreamer.key == key)
         {
             return it;
@@ -374,12 +374,18 @@ void StartReStream(
 
     if(reStreamerConfig.enabled) {
         if(reStreamerIt == reStreamers->end()) {
-            Log()->info("ReStreaming \"{}\" (\"{}\")", reStreamerConfig.source, reStreamerId);
+            Log()->info("ReStreaming \"{}\" (\"{}\")", reStreamerConfig.sourceUrl, reStreamerId);
         } else {
-            Log()->warn("Ignoring reStreaming request for already reStreaming source \"{}\" (\"{}\")...", reStreamerConfig.source, reStreamerId);
+            Log()->warn(
+                "Ignoring reStreaming request for already reStreaming source \"{}\" (\"{}\")...",
+                reStreamerConfig.sourceUrl,
+                reStreamerId);
         }
     } else {
-        Log()->debug("Ignoring reStreaming request for disabled source \"{}\" (\"{}\")...", reStreamerConfig.source, reStreamerId);
+        Log()->debug(
+            "Ignoring reStreaming request for disabled source \"{}\" (\"{}\")...",
+            reStreamerConfig.sourceUrl,
+            reStreamerId);
         assert(reStreamerIt == reStreamers->end());
         return;
     }
@@ -388,7 +394,7 @@ void StartReStream(
         std::piecewise_construct,
         std::forward_as_tuple(reStreamerId),
         std::forward_as_tuple(
-            reStreamerConfig.source,
+            reStreamerConfig.sourceUrl,
             BuildTargetUrl(config, reStreamerConfig),
             [context, reStreamerId] () {
                 // it's required to do reStreamerId copy
@@ -560,9 +566,9 @@ int main(int argc, char *argv[])
         const std::string& uniqueId = pair.first;
         const Config::ReStreamer& reStreamer = pair.second;
         context.reStreamers.emplace(
-            reStreamer.source,
+            reStreamer.sourceUrl,
             std::make_unique<GstReStreamer2>(
-                reStreamer.source,
+                reStreamer.sourceUrl,
                 reStreamer.forceH264ProfileLevelId));
 
         StartReStream(&context, uniqueId);

@@ -25,7 +25,7 @@ struct Config
 };
 
 struct Config::ReStreamer {
-    std::string source;
+    std::string sourceUrl;
     std::string description;
     std::string key;
     bool enabled;
