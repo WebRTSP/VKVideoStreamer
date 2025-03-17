@@ -1,25 +1,26 @@
-name: rtmp-video-streamer
+name: youtube-live-streamer
 base: core24
-summary: RTMP Video Streamer
+summary: YouTube Live Streamer
 adopt-info: streamer
 description: |
-  Intended to help stream your IP Cam to RTMP Server.
+  Intended to help stream your IP Cam to YouTube Live.
   _Note: only cams with h264 codec are supported at the moment_
 
   **Getting started**
   0. [RaspberryPi + Raspbian/Raspberry Pi OS] Update `snapd` to the latest available version according to https://forum.snapcraft.io/t/installing-snap-on-debian
-  1. Install snap: `sudo snap install rtmp-video-streamer --edge`
-  2. Open config file for edit: `sudoedit /var/snap/rtmp-video-streamer/common/rtmp-streamer.conf`
+  1. Install snap: `sudo snap install youtube-live-streamer --edge`
+  2. Get `stream key` in YouTube Studio (https://studio.youtube.com/channel/UC/livestreaming)
+  3. Open config file for edit: `sudoedit /var/snap/youtube-live-streamer/common/live-streamer.conf`
   4. Replace `source` value with desired RTSP URL
-  4. Replace `target` value with target RTMP server URL
-  6. Restart snap: `sudo snap restart rtmp-video-streamer`
+  5. Uncomment `youtube-stream-key: "xxxx-xxxx-xxxx-xxxx-xxxx"` line by removing `#` at the beginning and replace `xxxx-xxxx-xxxx-xxxx-xxxx` with your `stream key`
+  6. Restart snap: `sudo snap restart youtube-live-streamer`
 
   **Hints**
   * You can view configured video streams by opening http://localhost:4080 in browser
 
   **Troubleshooting**
   * Create issue on https://github.com/WebRTSP/RTMPVideoStreamer/issues
-  * Look to the logs with `sudo snap logs rtmp-video-streamer` or `sudo snap logs rtmp-video-streamer -f`
+  * Look to the logs with `sudo snap logs youtube-live-streamer` or `sudo snap logs youtube-live-streamer -f`
 license: GPL-3.0
 grade: devel
 confinement: strict
@@ -46,6 +47,7 @@ parts:
     cmake-parameters:
       - -DCMAKE_INSTALL_PREFIX=/opt/${CRAFT_PROJECT_NAME}
       - -DCMAKE_BUILD_TYPE=Release
+      - -DYOUTUBE_LIVE_STREAMER=ON
     build-snaps:
       - node/22/stable
     build-packages:
@@ -76,7 +78,7 @@ parts:
 
 apps:
   VideoStreamer:
-    command: opt/${CRAFT_PROJECT_NAME}/bin/RTMPVideoStreamer
+    command: opt/${CRAFT_PROJECT_NAME}/bin/YouTubeLiveStreamer
     daemon: simple
     plugs:
       - network
