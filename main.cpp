@@ -34,8 +34,16 @@ static const auto Log = ReStreamerLog;
 
 namespace {
 
+#if VK_VIDEO_STREAMER
 const char* ConfigFileName = "vk-streamer.conf";
 const char* AppConfigFileName = "vk-streamer.app.conf";
+#elif YOUTUBE_LIVE_STREAMER
+const char* ConfigFileName = "live-streamer.conf";
+const char* AppConfigFileName = "live-streamer.app.conf";
+#else
+const char* ConfigFileName = "rtmp-streamer.conf";
+const char* AppConfigFileName = "rtmp-streamer.app.conf";
+#endif
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(config_t, config_destroy)
 
