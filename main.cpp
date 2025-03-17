@@ -184,6 +184,11 @@ void LoadStreamers(
             const char* description = "";
             config_setting_lookup_string(streamerConfig, "description", &description);
             const char* key = nullptr;
+#if YOUTUBE_LIVE_STREAMER
+            if(userConfigLoading) {
+                config_setting_lookup_string(streamerConfig, "youtube-stream-key", &key);
+            }
+#endif
             config_setting_lookup_string(streamerConfig, "key", &key);
             int enabled = TRUE;
             config_setting_lookup_bool(streamerConfig, "enable", &enabled);
