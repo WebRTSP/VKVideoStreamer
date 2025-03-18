@@ -8,7 +8,7 @@ description: |
 
   **Getting started**
   0. [RaspberryPi + Raspbian/Raspberry Pi OS] Update `snapd` to the latest available version according to https://forum.snapcraft.io/t/installing-snap-on-debian
-  1. Install snap: `sudo snap install vk-video-streamer --edge`
+  1. Install snap: `sudo snap install vk-video-streamer`
   2. Get `KEY` in `https://vk.com/video` -> Live -> App
   3. Open config file for edit: `sudoedit /var/snap/vk-video-streamer/common/vk-streamer.conf`
   4. Replace `source` value with desired RTSP URL
@@ -22,7 +22,7 @@ description: |
   * Create issue on https://github.com/WebRTSP/RTMPVideoStreamer/issues
   * Look to the logs with `sudo snap logs vk-video-streamer` or `sudo snap logs vk-video-streamer -f`
 license: GPL-3.0
-grade: devel
+grade: stable
 confinement: strict
 
 platforms:
@@ -40,8 +40,9 @@ parts:
     plugin: cmake
     source-type: git
     source: .
-    source-branch: master
+    source-branch: stable
     override-pull: |
+        git -C $CRAFT_PROJECT_DIR branch --track stable origin/stable
         craftctl default
         craftctl set version="$(git describe --always)"
     cmake-parameters:
