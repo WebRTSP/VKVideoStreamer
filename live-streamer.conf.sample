@@ -1,0 +1,31 @@
+streamers: (
+  {
+    source: "rtsp://localhost:8554/red"
+#    description: "red"
+#    key: "xxxx-xxxx-xxxx-xxxx-xxxx"
+#    enable: true
+  },
+  {
+    source: "rtsp://localhost:8554/green"
+#    description: "green"
+#    key: "xxxx-xxxx-xxxx-xxxx-xxxx"
+#    enable: true
+  },
+  {
+    source: "rtsp://localhost:8554/blue"
+#    description: "blue"
+#    key: "xxxx-xxxx-xxxx-xxxx-xxxx"
+#    enable: true
+  }
+)
+
+#http-port: 4080
+#ws-port: 5554
+
+#loopback-only: false
+
+// absolute or relative (based on %SNAP_COMMON% in case of snap package, or current dir in other cases) path
+// to custom web client
+#www-root: "www"
+
+log-level: 3
